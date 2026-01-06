@@ -25,9 +25,12 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 const LOCALE_STORAGE_KEY = 'homestay-locale'
 const LOCALE_COOKIE_KEY = 'locale'
 
-// Helper to set cookie
+// Helper to set cookie with proper attributes for production
 function setLocaleCookie(locale: Locale) {
-  document.cookie = `${LOCALE_COOKIE_KEY}=${locale};path=/;max-age=31536000` // 1 year
+  // Only add Secure flag on HTTPS (production), not on localhost HTTP
+  const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
+  const secureFlag = isSecure ? ';Secure' : ''
+  document.cookie = `${LOCALE_COOKIE_KEY}=${locale};path=/;max-age=31536000;SameSite=Lax${secureFlag}`
 }
 
 // Helper to get locale from cookie

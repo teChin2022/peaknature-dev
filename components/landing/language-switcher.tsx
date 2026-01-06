@@ -19,8 +19,10 @@ export function LanguageSwitcher({ currentLocale }: LanguageSwitcherProps) {
   const router = useRouter()
 
   const handleLanguageChange = (locale: Locale) => {
-    // Set cookie for language preference
-    document.cookie = `locale=${locale};path=/;max-age=31536000` // 1 year
+    // Set cookie for language preference with proper attributes for production
+    const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
+    const secureFlag = isSecure ? ';Secure' : ''
+    document.cookie = `locale=${locale};path=/;max-age=31536000;SameSite=Lax${secureFlag}`
     router.refresh()
   }
 

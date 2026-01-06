@@ -13,8 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/components/providers/language-provider'
 import { locales, localeNames, localeFlags, Locale } from '@/lib/i18n'
 import { useTranslations } from 'next-intl'
@@ -27,8 +25,6 @@ interface TenantHeaderProps {
 export function TenantHeader({ tenant, user }: TenantHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
   const { locale, setLocale } = useLanguage()
   const t = useTranslations('nav')
   const tAuth = useTranslations('auth')
@@ -44,10 +40,9 @@ export function TenantHeader({ tenant, user }: TenantHeaderProps) {
     setMounted(true)
   }, [])
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    // Redirect to tenant's landing page after sign out
-    window.location.href = `/${tenant.slug}`
+  const handleSignOut = () => {
+    // Use server-side signout route for proper cookie cleanup
+    window.location.href = `/${tenant.slug}/signout`
   }
 
   return (
