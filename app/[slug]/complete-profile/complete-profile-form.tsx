@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { MapPin, Loader2, CheckCircle2, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -9,11 +8,13 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { GuestLocationSelector } from '@/components/guest-location-selector'
+import { useTranslations } from 'next-intl'
 
 interface CompleteProfileFormProps {
   slug: string
   tenant: { name: string; primary_color: string }
   nextUrl: string | null
+  userId: string  // Pass user ID from server
   initialData: {
     phone: string
     province: string
@@ -27,10 +28,11 @@ export function CompleteProfileForm({
   slug, 
   tenant, 
   nextUrl, 
+  userId,
   initialData,
   isOAuthUser 
 }: CompleteProfileFormProps) {
-  const router = useRouter()
+  const t = useTranslations('completeProfile')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -59,12 +61,12 @@ export function CompleteProfileForm({
     
     // Validate phone (required for all users for refunds)
     if (!phone.trim() || phone.trim().length < 10) {
-      setError('Please enter a valid phone number (at least 10 digits)')
+      setError(t('errors.invalidPhone'))
       return
     }
     
     if (!province) {
-      setError('Please select your province')
+      setError(t('errors.selectProvince'))
       return
     }
 
@@ -72,12 +74,7 @@ export function CompleteProfileForm({
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError('Please login again')
-        return
-      }
-
+      // Use the userId passed from server instead of getUser()
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
@@ -86,17 +83,19 @@ export function CompleteProfileForm({
           district: district || null,
           sub_district: subDistrict || null,
         })
-        .eq('id', user.id)
+        .eq('id', userId)
 
       if (updateError) {
-        setError('Failed to save. Please try again.')
+        console.error('Profile update error:', updateError)
+        setError(t('errors.saveFailed'))
         return
       }
 
       // Redirect to next page or home
-      router.push(nextUrl || `/${slug}`)
-    } catch {
-      setError('Something went wrong. Please try again.')
+      window.location.href = nextUrl || `/${slug}`
+    } catch (err) {
+      console.error('Save error:', err)
+      setError(t('errors.somethingWrong'))
     } finally {
       setIsSaving(false)
     }
@@ -114,10 +113,10 @@ export function CompleteProfileForm({
             <MapPin className="h-8 w-8" style={{ color: tenant.primary_color }} />
           </div>
           <h1 className="text-2xl font-bold text-stone-900">
-            Complete Your Profile
+            {t('title')}
           </h1>
           <p className="text-stone-600 mt-2">
-            Please tell us where you&apos;re from to help {tenant.name} serve you better
+            {t('subtitle', { tenantName: tenant.name })}
           </p>
         </div>
 
@@ -126,10 +125,10 @@ export function CompleteProfileForm({
           <CardHeader className="pb-4">
             <CardTitle className="text-lg flex items-center gap-2">
               <MapPin className="h-5 w-5" style={{ color: tenant.primary_color }} />
-              Complete Your Details
+              {t('cardTitle')}
             </CardTitle>
             <CardDescription>
-              This helps us serve you better and process refunds if needed
+              {t('cardDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -137,25 +136,25 @@ export function CompleteProfileForm({
               {/* Phone Number */}
               <div className="space-y-2">
                 <Label htmlFor="phone">
-                  Phone Number <span className="text-red-500">*</span>
+                  {t('phone.label')} <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+66 812 345 678"
+                    placeholder={t('phone.placeholder')}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="pl-10"
                     required
                   />
                 </div>
-                <p className="text-xs text-stone-500">Required for booking confirmations and refunds via PromptPay</p>
+                <p className="text-xs text-stone-500">{t('phone.hint')}</p>
               </div>
 
               <div className="border-t border-stone-200 my-4 pt-4">
-                <p className="text-sm font-medium text-stone-700 mb-4">Your Location</p>
+                <p className="text-sm font-medium text-stone-700 mb-4">{t('location.title')}</p>
               </div>
 
               {/* Searchable Location Selector */}
@@ -167,6 +166,19 @@ export function CompleteProfileForm({
                 onDistrictChange={handleDistrictChange}
                 onSubDistrictChange={setSubDistrict}
                 primaryColor={tenant.primary_color}
+                labels={{
+                  province: t('location.province'),
+                  district: t('location.district'),
+                  subDistrict: t('location.subDistrict'),
+                  selectProvince: t('location.selectProvince'),
+                  selectDistrict: t('location.selectDistrict'),
+                  selectSubDistrict: t('location.selectSubDistrict'),
+                  selectProvinceFirst: t('location.selectProvinceFirst'),
+                  selectDistrictFirst: t('location.selectDistrictFirst'),
+                  search: t('location.search'),
+                  noResults: t('location.noResults'),
+                  optional: t('location.optional'),
+                }}
               />
 
               {error && (
@@ -177,19 +189,19 @@ export function CompleteProfileForm({
 
               <Button
                 type="submit"
-                className="w-full h-12 text-base font-semibold text-white"
+                className="w-full h-12 text-base font-semibold text-white cursor-pointer"
                 style={{ backgroundColor: tenant.primary_color }}
                 disabled={isSaving || !phone.trim() || phone.trim().length < 10 || !province}
               >
                 {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    {t('saving')}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    Complete Profile
+                    {t('submit')}
                   </>
                 )}
               </Button>
@@ -199,11 +211,9 @@ export function CompleteProfileForm({
 
         {/* Info note */}
         <p className="text-center text-xs text-stone-500 mt-6">
-          Your location helps the property understand where their guests come from.
-          <br />This information is kept private and secure.
+          {t('privacyNote')}
         </p>
       </div>
     </div>
   )
 }
-

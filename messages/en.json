@@ -748,5 +748,39 @@
     "decline": "Decline",
     "learnMore": "Learn More",
     "manageSettings": "Cookie Settings"
+  },
+  "completeProfile": {
+    "title": "Complete Your Profile",
+    "subtitle": "Please tell us where you're from to help {tenantName} serve you better",
+    "cardTitle": "Complete Your Details",
+    "cardDescription": "This helps us serve you better and process refunds if needed",
+    "phone": {
+      "label": "Phone Number",
+      "placeholder": "+66 812 345 678",
+      "hint": "Required for booking confirmations and refunds via PromptPay"
+    },
+    "location": {
+      "title": "Your Location",
+      "province": "Province / จังหวัด",
+      "district": "District / อำเภอ",
+      "subDistrict": "Sub-district / ตำบล",
+      "selectProvince": "Select province",
+      "selectDistrict": "Select district",
+      "selectSubDistrict": "Select sub-district",
+      "selectProvinceFirst": "Select province first",
+      "selectDistrictFirst": "Select district first",
+      "search": "Search...",
+      "noResults": "No location found",
+      "optional": "(optional)"
+    },
+    "submit": "Complete Profile",
+    "saving": "Saving...",
+    "privacyNote": "Your location helps the property understand where their guests come from. This information is kept private and secure.",
+    "errors": {
+      "invalidPhone": "Please enter a valid phone number (at least 10 digits)",
+      "selectProvince": "Please select your province",
+      "saveFailed": "Failed to save. Please try again.",
+      "somethingWrong": "Something went wrong. Please try again."
+    }
   }
 }

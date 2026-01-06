@@ -62,6 +62,7 @@ export default async function CompleteProfilePage({ params, searchParams }: Comp
       slug={slug}
       tenant={tenant}
       nextUrl={nextUrl || null}
+      userId={user.id}
       initialData={{
         phone: profile?.phone || '',
         province: profile?.province || '',
