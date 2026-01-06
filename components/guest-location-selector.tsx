@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,15 +17,23 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { 
-  getProvinces, 
-  getDistrictsByProvince, 
-  getSubDistrictsByDistrict,
-  Province,
-  District,
-  SubDistrict
-} from '@/lib/thailand-locations'
 import { Label } from '@/components/ui/label'
+
+interface Province {
+  name_th: string
+  name_en: string
+}
+
+interface District {
+  name_th: string
+  name_en: string
+}
+
+interface SubDistrict {
+  name_th: string
+  name_en: string
+  zip_code?: number
+}
 
 interface GuestLocationSelectorProps {
   province: string
@@ -77,11 +85,86 @@ export function GuestLocationSelector({
   const [provinceOpen, setProvinceOpen] = React.useState(false)
   const [districtOpen, setDistrictOpen] = React.useState(false)
   const [subDistrictOpen, setSubDistrictOpen] = React.useState(false)
+  
+  // Data states - loaded from API
+  const [provinces, setProvinces] = React.useState<Province[]>([])
+  const [districts, setDistricts] = React.useState<District[]>([])
+  const [subDistricts, setSubDistricts] = React.useState<SubDistrict[]>([])
+  
+  // Loading states
+  const [loadingProvinces, setLoadingProvinces] = React.useState(true)
+  const [loadingDistricts, setLoadingDistricts] = React.useState(false)
+  const [loadingSubDistricts, setLoadingSubDistricts] = React.useState(false)
 
   const labels = { ...defaultLabels, ...customLabels }
-  const provinces = getProvinces()
-  const districts = province ? getDistrictsByProvince(province) : []
-  const subDistricts = district ? getSubDistrictsByDistrict(province, district) : []
+
+  // Load provinces on mount
+  React.useEffect(() => {
+    async function loadProvinces() {
+      try {
+        const res = await fetch('/api/locations/provinces')
+        if (res.ok) {
+          const data = await res.json()
+          setProvinces(data)
+        }
+      } catch (error) {
+        console.error('Failed to load provinces:', error)
+      } finally {
+        setLoadingProvinces(false)
+      }
+    }
+    loadProvinces()
+  }, [])
+
+  // Load districts when province changes
+  React.useEffect(() => {
+    if (!province) {
+      setDistricts([])
+      return
+    }
+    
+    async function loadDistricts() {
+      setLoadingDistricts(true)
+      try {
+        const res = await fetch(`/api/locations/districts?province=${encodeURIComponent(province)}`)
+        if (res.ok) {
+          const data = await res.json()
+          setDistricts(data)
+        }
+      } catch (error) {
+        console.error('Failed to load districts:', error)
+      } finally {
+        setLoadingDistricts(false)
+      }
+    }
+    loadDistricts()
+  }, [province])
+
+  // Load sub-districts when district changes
+  React.useEffect(() => {
+    if (!province || !district) {
+      setSubDistricts([])
+      return
+    }
+    
+    async function loadSubDistricts() {
+      setLoadingSubDistricts(true)
+      try {
+        const res = await fetch(
+          `/api/locations/sub-districts?province=${encodeURIComponent(province)}&district=${encodeURIComponent(district)}`
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setSubDistricts(data)
+        }
+      } catch (error) {
+        console.error('Failed to load sub-districts:', error)
+      } finally {
+        setLoadingSubDistricts(false)
+      }
+    }
+    loadSubDistricts()
+  }, [province, district])
 
   const selectedProvince = provinces.find(p => p.name_th === province)
   const selectedDistrict = districts.find(d => d.name_th === district)
@@ -102,9 +185,15 @@ export function GuestLocationSelector({
               role="combobox"
               aria-expanded={provinceOpen}
               className="w-full justify-between bg-white font-normal h-10 cursor-pointer"
+              disabled={loadingProvinces}
               onClick={() => setProvinceOpen(!provinceOpen)}
             >
-              {selectedProvince ? (
+              {loadingProvinces ? (
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : selectedProvince ? (
                 <span className="truncate">
                   {selectedProvince.name_th} ({selectedProvince.name_en})
                 </span>
@@ -120,7 +209,7 @@ export function GuestLocationSelector({
               <CommandList>
                 <CommandEmpty>{labels.noResults}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
-                  {provinces.map((p: Province) => (
+                  {provinces.map((p) => (
                     <CommandItem
                       key={p.name_th}
                       value={`${p.name_th} ${p.name_en}`}
@@ -160,10 +249,15 @@ export function GuestLocationSelector({
               role="combobox"
               aria-expanded={districtOpen}
               className="w-full justify-between bg-white font-normal h-10 cursor-pointer"
-              disabled={!province}
+              disabled={!province || loadingDistricts}
               onClick={() => province && setDistrictOpen(!districtOpen)}
             >
-              {selectedDistrict ? (
+              {loadingDistricts ? (
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : selectedDistrict ? (
                 <span className="truncate">
                   {selectedDistrict.name_th} ({selectedDistrict.name_en})
                 </span>
@@ -181,7 +275,7 @@ export function GuestLocationSelector({
               <CommandList>
                 <CommandEmpty>{labels.noResults}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
-                  {districts.map((d: District) => (
+                  {districts.map((d) => (
                     <CommandItem
                       key={d.name_th}
                       value={`${d.name_th} ${d.name_en}`}
@@ -221,10 +315,15 @@ export function GuestLocationSelector({
               role="combobox"
               aria-expanded={subDistrictOpen}
               className="w-full justify-between bg-white font-normal h-10 cursor-pointer"
-              disabled={!district}
+              disabled={!district || loadingSubDistricts}
               onClick={() => district && setSubDistrictOpen(!subDistrictOpen)}
             >
-              {selectedSubDistrict ? (
+              {loadingSubDistricts ? (
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : selectedSubDistrict ? (
                 <span className="truncate">
                   {selectedSubDistrict.name_th} ({selectedSubDistrict.name_en})
                 </span>
@@ -242,7 +341,7 @@ export function GuestLocationSelector({
               <CommandList>
                 <CommandEmpty>{labels.noResults}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
-                  {subDistricts.map((s: SubDistrict) => (
+                  {subDistricts.map((s) => (
                     <CommandItem
                       key={s.name_th}
                       value={`${s.name_th} ${s.name_en} ${s.zip_code}`}
@@ -272,4 +371,3 @@ export function GuestLocationSelector({
     </div>
   )
 }
-

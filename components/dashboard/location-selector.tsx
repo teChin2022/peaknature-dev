@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronsUpDown, Search } from 'lucide-react'
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,54 +17,133 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { 
-  getProvinces, 
-  getDistrictsByProvince, 
-  getSubDistrictsByDistrict,
-  Province,
-  District,
-  SubDistrict
-} from '@/lib/thailand-locations'
+import { Label } from '@/components/ui/label'
+import { useTranslations } from 'next-intl'
 
-interface LocationSelectorProps {
-  location: {
-    province: string
-    province_en: string
-    district: string
-    district_en: string
-    sub_district: string
-    sub_district_en: string
-    postal_code: string
-  }
-  onChange: (location: LocationSelectorProps['location']) => void
-  translations: {
-    province: string
-    district: string
-    subDistrict: string
-    selectProvince: string
-    selectDistrict: string
-    selectSubDistrict: string
-    selectProvinceFirst: string
-    selectDistrictFirst: string
-    searchPlaceholder: string
-    noResults: string
-  }
+interface Province {
+  name_th: string
+  name_en: string
 }
 
-export function LocationSelector({ location, onChange, translations }: LocationSelectorProps) {
+interface District {
+  name_th: string
+  name_en: string
+}
+
+interface SubDistrict {
+  name_th: string
+  name_en: string
+  zip_code?: number
+}
+
+interface LocationData {
+  province: string
+  province_en: string
+  district: string
+  district_en: string
+  sub_district: string
+  sub_district_en: string
+  postal_code: string
+}
+
+interface LocationSelectorProps {
+  location: LocationData
+  onLocationChange: (location: LocationData) => void
+}
+
+export function LocationSelector({ location, onLocationChange }: LocationSelectorProps) {
+  const t = useTranslations('settings')
+  
   const [provinceOpen, setProvinceOpen] = React.useState(false)
   const [districtOpen, setDistrictOpen] = React.useState(false)
   const [subDistrictOpen, setSubDistrictOpen] = React.useState(false)
+  
+  // Data states - loaded from API
+  const [provinces, setProvinces] = React.useState<Province[]>([])
+  const [districts, setDistricts] = React.useState<District[]>([])
+  const [subDistricts, setSubDistricts] = React.useState<SubDistrict[]>([])
+  
+  // Loading states
+  const [loadingProvinces, setLoadingProvinces] = React.useState(true)
+  const [loadingDistricts, setLoadingDistricts] = React.useState(false)
+  const [loadingSubDistricts, setLoadingSubDistricts] = React.useState(false)
 
-  const provinces = getProvinces()
-  const districts = location.province ? getDistrictsByProvince(location.province) : []
-  const subDistricts = location.district ? getSubDistrictsByDistrict(location.province, location.district) : []
+  // Load provinces on mount
+  React.useEffect(() => {
+    async function loadProvinces() {
+      try {
+        const res = await fetch('/api/locations/provinces')
+        if (res.ok) {
+          const data = await res.json()
+          setProvinces(data)
+        }
+      } catch (error) {
+        console.error('Failed to load provinces:', error)
+      } finally {
+        setLoadingProvinces(false)
+      }
+    }
+    loadProvinces()
+  }, [])
 
-  const handleProvinceSelect = (provinceName: string) => {
-    const province = provinces.find(p => p.name_th === provinceName)
-    onChange({
-      province: provinceName,
-      province_en: province?.name_en || '',
+  // Load districts when province changes
+  React.useEffect(() => {
+    if (!location.province) {
+      setDistricts([])
+      return
+    }
+    
+    async function loadDistricts() {
+      setLoadingDistricts(true)
+      try {
+        const res = await fetch(`/api/locations/districts?province=${encodeURIComponent(location.province)}`)
+        if (res.ok) {
+          const data = await res.json()
+          setDistricts(data)
+        }
+      } catch (error) {
+        console.error('Failed to load districts:', error)
+      } finally {
+        setLoadingDistricts(false)
+      }
+    }
+    loadDistricts()
+  }, [location.province])
+
+  // Load sub-districts when district changes
+  React.useEffect(() => {
+    if (!location.province || !location.district) {
+      setSubDistricts([])
+      return
+    }
+    
+    async function loadSubDistricts() {
+      setLoadingSubDistricts(true)
+      try {
+        const res = await fetch(
+          `/api/locations/sub-districts?province=${encodeURIComponent(location.province)}&district=${encodeURIComponent(location.district)}`
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setSubDistricts(data)
+        }
+      } catch (error) {
+        console.error('Failed to load sub-districts:', error)
+      } finally {
+        setLoadingSubDistricts(false)
+      }
+    }
+    loadSubDistricts()
+  }, [location.province, location.district])
+
+  const selectedProvince = provinces.find(p => p.name_th === location.province)
+  const selectedDistrict = districts.find(d => d.name_th === location.district)
+  const selectedSubDistrict = subDistricts.find(s => s.name_th === location.sub_district)
+
+  const handleProvinceChange = (province: Province) => {
+    onLocationChange({
+      province: province.name_th,
+      province_en: province.name_en,
       district: '',
       district_en: '',
       sub_district: '',
@@ -74,12 +153,11 @@ export function LocationSelector({ location, onChange, translations }: LocationS
     setProvinceOpen(false)
   }
 
-  const handleDistrictSelect = (districtName: string) => {
-    const district = districts.find(d => d.name_th === districtName)
-    onChange({
+  const handleDistrictChange = (district: District) => {
+    onLocationChange({
       ...location,
-      district: districtName,
-      district_en: district?.name_en || '',
+      district: district.name_th,
+      district_en: district.name_en,
       sub_district: '',
       sub_district_en: '',
       postal_code: '',
@@ -87,22 +165,21 @@ export function LocationSelector({ location, onChange, translations }: LocationS
     setDistrictOpen(false)
   }
 
-  const handleSubDistrictSelect = (subDistrictName: string) => {
-    const subDistrict = subDistricts.find(s => s.name_th === subDistrictName)
-    onChange({
+  const handleSubDistrictChange = (subDistrict: SubDistrict) => {
+    onLocationChange({
       ...location,
-      sub_district: subDistrictName,
-      sub_district_en: subDistrict?.name_en || '',
-      postal_code: subDistrict?.zip_code?.toString() || '',
+      sub_district: subDistrict.name_th,
+      sub_district_en: subDistrict.name_en,
+      postal_code: subDistrict.zip_code?.toString() || '',
     })
     setSubDistrictOpen(false)
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Province Selector */}
+    <div className="space-y-4">
+      {/* Province */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">{translations.province}</label>
+        <Label>{t('contact.province')}</Label>
         <Popover open={provinceOpen} onOpenChange={setProvinceOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button
@@ -111,39 +188,45 @@ export function LocationSelector({ location, onChange, translations }: LocationS
               role="combobox"
               aria-expanded={provinceOpen}
               className="w-full justify-between bg-white font-normal h-10 cursor-pointer"
+              disabled={loadingProvinces}
               onClick={() => setProvinceOpen(!provinceOpen)}
             >
-              {location.province ? (
+              {loadingProvinces ? (
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : selectedProvince ? (
                 <span className="truncate">
-                  {location.province} ({location.province_en})
+                  {selectedProvince.name_th} ({selectedProvince.name_en})
                 </span>
               ) : (
-                <span className="text-gray-500">{translations.selectProvince}</span>
+                <span className="text-gray-500">{t('contact.selectProvince')}</span>
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[350px] p-0 z-[100]" align="start">
             <Command>
-              <CommandInput placeholder={translations.searchPlaceholder} />
+              <CommandInput placeholder={t('contact.searchLocation')} />
               <CommandList>
-                <CommandEmpty>{translations.noResults}</CommandEmpty>
+                <CommandEmpty>{t('contact.noLocationResults')}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
-                  {provinces.map((province: Province) => (
+                  {provinces.map((p) => (
                     <CommandItem
-                      key={province.name_th}
-                      value={`${province.name_th} ${province.name_en}`}
-                      onSelect={() => handleProvinceSelect(province.name_th)}
+                      key={p.name_th}
+                      value={`${p.name_th} ${p.name_en}`}
+                      onSelect={() => handleProvinceChange(p)}
                       className="cursor-pointer"
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          location.province === province.name_th ? "opacity-100" : "opacity-0"
+                          location.province === p.name_th ? "opacity-100" : "opacity-0"
                         )}
                       />
-                      <span>{province.name_th}</span>
-                      <span className="ml-2 text-gray-500 text-sm">({province.name_en})</span>
+                      <span>{p.name_th}</span>
+                      <span className="ml-2 text-gray-500 text-sm">({p.name_en})</span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -153,9 +236,9 @@ export function LocationSelector({ location, onChange, translations }: LocationS
         </Popover>
       </div>
 
-      {/* District Selector */}
+      {/* District */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">{translations.district}</label>
+        <Label>{t('contact.district')}</Label>
         <Popover open={districtOpen} onOpenChange={setDistrictOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button
@@ -164,16 +247,21 @@ export function LocationSelector({ location, onChange, translations }: LocationS
               role="combobox"
               aria-expanded={districtOpen}
               className="w-full justify-between bg-white font-normal h-10 cursor-pointer"
-              disabled={!location.province}
+              disabled={!location.province || loadingDistricts}
               onClick={() => location.province && setDistrictOpen(!districtOpen)}
             >
-              {location.district ? (
+              {loadingDistricts ? (
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : selectedDistrict ? (
                 <span className="truncate">
-                  {location.district} ({location.district_en})
+                  {selectedDistrict.name_th} ({selectedDistrict.name_en})
                 </span>
               ) : (
                 <span className="text-gray-500">
-                  {location.province ? translations.selectDistrict : translations.selectProvinceFirst}
+                  {location.province ? t('contact.selectDistrict') : t('contact.selectProvinceFirst')}
                 </span>
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -181,25 +269,25 @@ export function LocationSelector({ location, onChange, translations }: LocationS
           </PopoverTrigger>
           <PopoverContent className="w-[350px] p-0 z-[100]" align="start">
             <Command>
-              <CommandInput placeholder={translations.searchPlaceholder} />
+              <CommandInput placeholder={t('contact.searchLocation')} />
               <CommandList>
-                <CommandEmpty>{translations.noResults}</CommandEmpty>
+                <CommandEmpty>{t('contact.noLocationResults')}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
-                  {districts.map((district: District) => (
+                  {districts.map((d) => (
                     <CommandItem
-                      key={district.name_th}
-                      value={`${district.name_th} ${district.name_en}`}
-                      onSelect={() => handleDistrictSelect(district.name_th)}
+                      key={d.name_th}
+                      value={`${d.name_th} ${d.name_en}`}
+                      onSelect={() => handleDistrictChange(d)}
                       className="cursor-pointer"
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          location.district === district.name_th ? "opacity-100" : "opacity-0"
+                          location.district === d.name_th ? "opacity-100" : "opacity-0"
                         )}
                       />
-                      <span>{district.name_th}</span>
-                      <span className="ml-2 text-gray-500 text-sm">({district.name_en})</span>
+                      <span>{d.name_th}</span>
+                      <span className="ml-2 text-gray-500 text-sm">({d.name_en})</span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -209,9 +297,9 @@ export function LocationSelector({ location, onChange, translations }: LocationS
         </Popover>
       </div>
 
-      {/* Sub-District Selector */}
+      {/* Sub-District */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">{translations.subDistrict}</label>
+        <Label>{t('contact.subDistrict')}</Label>
         <Popover open={subDistrictOpen} onOpenChange={setSubDistrictOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button
@@ -220,16 +308,21 @@ export function LocationSelector({ location, onChange, translations }: LocationS
               role="combobox"
               aria-expanded={subDistrictOpen}
               className="w-full justify-between bg-white font-normal h-10 cursor-pointer"
-              disabled={!location.district}
+              disabled={!location.district || loadingSubDistricts}
               onClick={() => location.district && setSubDistrictOpen(!subDistrictOpen)}
             >
-              {location.sub_district ? (
+              {loadingSubDistricts ? (
+                <span className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </span>
+              ) : selectedSubDistrict ? (
                 <span className="truncate">
-                  {location.sub_district} ({location.sub_district_en})
+                  {selectedSubDistrict.name_th} ({selectedSubDistrict.name_en})
                 </span>
               ) : (
                 <span className="text-gray-500">
-                  {location.district ? translations.selectSubDistrict : translations.selectDistrictFirst}
+                  {location.district ? t('contact.selectSubDistrict') : t('contact.selectDistrictFirst')}
                 </span>
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -237,26 +330,26 @@ export function LocationSelector({ location, onChange, translations }: LocationS
           </PopoverTrigger>
           <PopoverContent className="w-[350px] p-0 z-[100]" align="start">
             <Command>
-              <CommandInput placeholder={translations.searchPlaceholder} />
+              <CommandInput placeholder={t('contact.searchLocation')} />
               <CommandList>
-                <CommandEmpty>{translations.noResults}</CommandEmpty>
+                <CommandEmpty>{t('contact.noLocationResults')}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
-                  {subDistricts.map((sub: SubDistrict) => (
+                  {subDistricts.map((s) => (
                     <CommandItem
-                      key={sub.name_th}
-                      value={`${sub.name_th} ${sub.name_en} ${sub.zip_code}`}
-                      onSelect={() => handleSubDistrictSelect(sub.name_th)}
+                      key={s.name_th}
+                      value={`${s.name_th} ${s.name_en} ${s.zip_code}`}
+                      onSelect={() => handleSubDistrictChange(s)}
                       className="cursor-pointer"
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          location.sub_district === sub.name_th ? "opacity-100" : "opacity-0"
+                          location.sub_district === s.name_th ? "opacity-100" : "opacity-0"
                         )}
                       />
-                      <span>{sub.name_th}</span>
-                      <span className="ml-2 text-gray-500 text-sm">({sub.name_en})</span>
-                      <span className="ml-auto text-gray-400 text-xs">{sub.zip_code}</span>
+                      <span>{s.name_th}</span>
+                      <span className="ml-2 text-gray-500 text-sm">({s.name_en})</span>
+                      <span className="ml-auto text-gray-400 text-xs">{s.zip_code}</span>
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -265,7 +358,29 @@ export function LocationSelector({ location, onChange, translations }: LocationS
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* Postal Code (auto-filled, read-only) */}
+      {location.postal_code && (
+        <div className="space-y-2">
+          <Label>{t('contact.postalCode')}</Label>
+          <div className="h-10 px-3 py-2 bg-gray-50 border rounded-md text-gray-600">
+            {location.postal_code}
+          </div>
+        </div>
+      )}
+
+      {/* Full Address Preview */}
+      {location.province && (
+        <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+          <strong>{t('contact.fullAddressPreview')}:</strong>{' '}
+          {[
+            location.sub_district,
+            location.district,
+            location.province,
+            location.postal_code
+          ].filter(Boolean).join(', ')}
+        </div>
+      )}
     </div>
   )
 }
-
