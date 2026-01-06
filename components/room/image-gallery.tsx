@@ -81,7 +81,7 @@ export function ImageGallery({ images, roomName }: ImageGalleryProps) {
             className="object-cover transition-transform duration-500 group-hover:scale-[1.02]"
             placeholder="blur"
             blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAUH/8QAIhAAAgEDBAMBAAAAAAAAAAAAAQIDAAQRBQYSIRMxQXH/xAAVAQEBAAAAAAAAAAAAAAAAAAADBP/EABkRAAIDAQAAAAAAAAAAAAAAAAECAAMRIf/aAAwDAQACEQMRAD8Aw63t7m6uIreGNnmkcIiqOyT0B+1b3tvYsWmbatrS8jEVzBbRRyqHBwwUdH/aUoVdnIbH/9k="
-            priority
+            loading="eager"
             sizes="(max-width: 768px) 100vw, 50vw"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -187,7 +187,7 @@ export function ImageGallery({ images, roomName }: ImageGalleryProps) {
                   height={800}
                   className="w-auto h-auto max-w-full max-h-[70vh] object-contain"
                   onLoad={() => setIsLoaded(true)}
-                  priority
+                  loading="eager"
                   quality={90}
                 />
               </div>

@@ -332,7 +332,7 @@ export function PaymentSlipUpload({
         <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" style={{ color: primaryColor }} />
         <p className="text-lg font-medium text-stone-900">{t('verifying')}</p>
         <p className="text-sm text-stone-500 mt-2">
-          {locale === 'th' ? 'กรุณารอสักครู่ขณะที่เราตรวจสอบสลิปการชำระเงินของคุณ' : 'Please wait while we verify your payment slip'}
+          {locale === 'th' ? 'กรุณารอสักครู่' : 'This may take a moment'}
         </p>
       </div>
     )

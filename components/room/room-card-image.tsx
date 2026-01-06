@@ -132,7 +132,7 @@ export function RoomCardImage({ images, roomName }: RoomCardImageProps) {
                   height={800}
                   className="w-auto h-auto max-w-full max-h-[70vh] object-contain"
                   onLoad={() => setIsLoaded(true)}
-                  priority
+                  loading="eager"
                   quality={90}
                 />
               </div>

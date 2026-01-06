@@ -152,7 +152,7 @@
     "uploadSlip": "อัปโหลดสลิป",
     "uploadFromPhone": "อัปโหลดจากโทรศัพท์",
     "scanQRToUpload": "สแกน QR เพื่ออัปโหลดจากโทรศัพท์",
-    "verifying": "กำลังตรวจสอบ...",
+    "verifying": "กำลังยืนยันการชำระเงิน...",
     "paymentSuccess": "ชำระเงินสำเร็จ",
     "bookingConfirmed": "ยืนยันการจองแล้ว",
     "transport": "บริการรับ-ส่ง",
