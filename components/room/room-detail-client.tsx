@@ -223,13 +223,10 @@ export function RoomDetailClient({
                     <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-medium text-red-800">
-                        {locale === 'th' ? 'วันที่ไม่ว่าง' : 'Dates Unavailable'}
+                        {tBooking('dateErrors.datesNotAvailable')}
                       </p>
                       <p className="text-sm text-red-700 mt-1">
-                        {locale === 'th' 
-                          ? 'วันที่คุณเลือกไม่ว่างแล้ว กรุณาเลือกวันอื่น'
-                          : 'The dates you selected are no longer available. Please choose different dates.'
-                        }
+                        {tBooking('dateErrors.datesUnavailable')}
                       </p>
                     </div>
                   </div>

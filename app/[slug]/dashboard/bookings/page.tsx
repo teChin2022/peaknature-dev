@@ -30,6 +30,7 @@ interface BookingWithDetails {
   guest_full_name: string | null
   guest_email: string | null
   guest_phone: string | null
+  payment_slip_url: string | null
 }
 
 async function getBookings(slug: string, filters: { status?: string; search?: string }) {
@@ -66,6 +67,7 @@ async function getBookings(slug: string, filters: { status?: string; search?: st
     total_price: b.total_price,
     status: b.status,
     created_at: b.created_at,
+    payment_slip_url: b.payment_slip_url || undefined,
     room: b.room_name ? { name: b.room_name } : undefined,
     user: b.guest_email ? {
       full_name: b.guest_full_name || undefined,

@@ -38,8 +38,26 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // Run auth check, booking fetch, and tenant fetch in parallel for speed
+    const [authResult, bookingResult, tenantResult] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase
+        .from('bookings')
+        .select(`*, room:rooms(*), user:profiles(*)`)
+        .eq('id', bookingId)
+        .single(),
+      supabase
+        .from('tenants')
+        .select('*')
+        .eq('id', tenantId)
+        .single()
+    ])
+
+    const user = authResult.data?.user
+    const booking = bookingResult.data
+    const tenant = tenantResult.data
+
     // Verify user is authenticated
-    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       logger.audit('payment_verification_unauthorized', { 
         ip: clientIP, 
@@ -52,18 +70,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get booking details
-    const { data: booking, error: bookingError } = await supabase
-      .from('bookings')
-      .select(`
-        *,
-        room:rooms(*),
-        user:profiles(*)
-      `)
-      .eq('id', bookingId)
-      .single()
-
-    if (bookingError || !booking) {
+    // Check booking exists
+    if (bookingResult.error || !booking) {
       return NextResponse.json(
         { success: false, error: 'Booking not found' },
         { status: 404 }
@@ -85,13 +93,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get tenant settings
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('*')
-      .eq('id', tenantId)
-      .single()
-
+    // Check tenant exists
     if (!tenant) {
       return NextResponse.json(
         { success: false, error: 'Tenant not found' },
@@ -255,89 +257,27 @@ export async function POST(request: NextRequest) {
       logger.error('Failed to log payment verification', auditError)
     }
 
-    // Release the reservation lock (user is already verified above)
-    await supabase.rpc('release_reservation_lock', {
+    // Release the reservation lock (fire and forget - don't block response)
+    supabase.rpc('release_reservation_lock', {
       p_room_id: booking.room_id,
       p_user_id: user.id,
       p_check_in: booking.check_in,
       p_check_out: booking.check_out
-    })
+    }).catch(err => logger.error('Failed to release reservation lock', err))
 
-    // Send notifications to host
-    const currency = settings.currency || 'USD'
-    const guestName = booking.user?.full_name || booking.user?.email || 'Guest'
-    const roomName = booking.room?.name || 'Room'
-    const checkIn = format(parseISO(booking.check_in), 'MMM d, yyyy')
-    const checkOut = format(parseISO(booking.check_out), 'MMM d, yyyy')
-    const totalPrice = formatPrice(booking.total_price, currency)
-    const bookingRef = bookingId.slice(0, 8).toUpperCase()
-
-    const notifications = generateBookingNotification({
-      guestName,
-      roomName,
-      checkIn,
-      checkOut,
-      guests: booking.guests,
-      totalPrice,
-      bookingRef,
-      notes: booking.notes,
-    })
-
-    // Send LINE message
-    if (settings.payment?.line_channel_access_token && settings.payment?.line_user_id) {
+    // Send notifications in background (don't block the response)
+    // This significantly speeds up the response time for the user
+    const sendNotificationsAsync = async () => {
       try {
-        await sendLineMessage({
-          channelAccessToken: settings.payment.line_channel_access_token,
-          userId: settings.payment.line_user_id,
-          message: notifications.lineMessage
-        })
-        
-        // Log notification
-        await supabase.from('notification_queue').insert({
-          tenant_id: tenantId,
-          booking_id: bookingId,
-          type: 'line',
-          recipient: settings.payment.line_user_id,
-          message: notifications.lineMessage,
-          status: 'sent',
-          sent_at: new Date().toISOString()
-        })
-      } catch (lineError) {
-        console.error('LINE notification error:', lineError)
-      }
-    }
+        const currency = settings.currency || 'USD'
+        const guestName = booking.user?.full_name || booking.user?.email || 'Guest'
+        const roomName = booking.room?.name || 'Room'
+        const checkIn = format(parseISO(booking.check_in), 'MMM d, yyyy')
+        const checkOut = format(parseISO(booking.check_out), 'MMM d, yyyy')
+        const totalPrice = formatPrice(booking.total_price, currency)
+        const bookingRef = bookingId.slice(0, 8).toUpperCase()
 
-    // Send email notification to host
-    if (settings.contact?.email) {
-      try {
-        await sendEmail({
-          to: settings.contact.email,
-          subject: notifications.emailSubject,
-          html: notifications.emailHtml,
-          fromName: tenant.name,
-        })
-
-        // Log notification
-        await supabase.from('notification_queue').insert({
-          tenant_id: tenantId,
-          booking_id: bookingId,
-          type: 'email',
-          recipient: settings.contact.email,
-          subject: notifications.emailSubject,
-          message: notifications.emailHtml,
-          status: 'sent',
-          sent_at: new Date().toISOString()
-        })
-      } catch (emailError) {
-        console.error('Email notification error:', emailError)
-      }
-    }
-
-    // Send confirmation email to guest
-    const guestEmail = booking.user?.email
-    if (guestEmail) {
-      try {
-        const guestNotification = generateGuestConfirmationEmail({
+        const notifications = generateBookingNotification({
           guestName,
           roomName,
           checkIn,
@@ -345,38 +285,108 @@ export async function POST(request: NextRequest) {
           guests: booking.guests,
           totalPrice,
           bookingRef,
-          checkInTime: booking.room?.check_in_time || '14:00',
-          checkOutTime: booking.room?.check_out_time || '12:00',
-          tenantName: tenant.name,
-          tenantSlug: tenant.slug,
-          primaryColor: tenant.primary_color,
           notes: booking.notes,
         })
 
-        await sendEmail({
-          to: guestEmail,
-          subject: guestNotification.emailSubject,
-          html: guestNotification.emailHtml,
-          fromName: tenant.name,
-          replyTo: settings.contact?.email, // Guest replies go to tenant
-        })
+        // Send all notifications in parallel
+        const notificationPromises: Promise<void>[] = []
 
-        // Log guest notification
-        await supabase.from('notification_queue').insert({
-          tenant_id: tenantId,
-          booking_id: bookingId,
-          type: 'email',
-          recipient: guestEmail,
-          subject: guestNotification.emailSubject,
-          message: guestNotification.emailHtml,
-          status: 'sent',
-          sent_at: new Date().toISOString()
-        })
-      } catch (guestEmailError) {
-        console.error('Guest email notification error:', guestEmailError)
+        // LINE message
+        if (settings.payment?.line_channel_access_token && settings.payment?.line_user_id) {
+          notificationPromises.push(
+            sendLineMessage({
+              channelAccessToken: settings.payment.line_channel_access_token,
+              userId: settings.payment.line_user_id,
+              message: notifications.lineMessage
+            }).then(() => {
+              supabase.from('notification_queue').insert({
+                tenant_id: tenantId,
+                booking_id: bookingId,
+                type: 'line',
+                recipient: settings.payment!.line_user_id,
+                message: notifications.lineMessage,
+                status: 'sent',
+                sent_at: new Date().toISOString()
+              })
+            }).catch(err => console.error('LINE notification error:', err))
+          )
+        }
+
+        // Email to host
+        if (settings.contact?.email) {
+          notificationPromises.push(
+            sendEmail({
+              to: settings.contact.email,
+              subject: notifications.emailSubject,
+              html: notifications.emailHtml,
+              fromName: tenant.name,
+            }).then(() => {
+              supabase.from('notification_queue').insert({
+                tenant_id: tenantId,
+                booking_id: bookingId,
+                type: 'email',
+                recipient: settings.contact!.email!,
+                subject: notifications.emailSubject,
+                message: notifications.emailHtml,
+                status: 'sent',
+                sent_at: new Date().toISOString()
+              })
+            }).catch(err => console.error('Email notification error:', err))
+          )
+        }
+
+        // Email to guest
+        const guestEmail = booking.user?.email
+        if (guestEmail) {
+          const guestNotification = generateGuestConfirmationEmail({
+            guestName,
+            roomName,
+            checkIn,
+            checkOut,
+            guests: booking.guests,
+            totalPrice,
+            bookingRef,
+            checkInTime: booking.room?.check_in_time || '14:00',
+            checkOutTime: booking.room?.check_out_time || '12:00',
+            tenantName: tenant.name,
+            tenantSlug: tenant.slug,
+            primaryColor: tenant.primary_color,
+            notes: booking.notes,
+          })
+
+          notificationPromises.push(
+            sendEmail({
+              to: guestEmail,
+              subject: guestNotification.emailSubject,
+              html: guestNotification.emailHtml,
+              fromName: tenant.name,
+              replyTo: settings.contact?.email,
+            }).then(() => {
+              supabase.from('notification_queue').insert({
+                tenant_id: tenantId,
+                booking_id: bookingId,
+                type: 'email',
+                recipient: guestEmail,
+                subject: guestNotification.emailSubject,
+                message: guestNotification.emailHtml,
+                status: 'sent',
+                sent_at: new Date().toISOString()
+              })
+            }).catch(err => console.error('Guest email notification error:', err))
+          )
+        }
+
+        // Execute all notifications in parallel
+        await Promise.allSettled(notificationPromises)
+      } catch (error) {
+        console.error('Notification error:', error)
       }
     }
 
+    // Fire and forget - don't await
+    sendNotificationsAsync()
+
+    // Return success immediately - user doesn't need to wait for notifications
     return NextResponse.json({
       success: true,
       verified: true,

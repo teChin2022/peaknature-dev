@@ -1,10 +1,19 @@
 'use client'
 
-import { Calendar, ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import Image from 'next/image'
+import { Calendar, ClipboardList, Receipt, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { BookingActions } from '@/components/dashboard/booking-actions'
 import { BookingFilters } from '@/components/dashboard/booking-filters'
 import { Pagination } from '@/components/ui/pagination'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useTranslations } from 'next-intl'
 import { formatPrice } from '@/lib/currency'
 import { format, parseISO, differenceInDays } from 'date-fns'
@@ -16,6 +25,7 @@ interface Booking {
   total_price: number
   status: string
   created_at: string
+  payment_slip_url?: string
   room?: { name: string }
   user?: { full_name?: string; email: string; phone?: string }
 }
@@ -54,6 +64,7 @@ export function BookingsPageContent({
   pagination,
 }: BookingsPageContentProps) {
   const t = useTranslations('dashboard')
+  const [selectedSlip, setSelectedSlip] = useState<{ url: string; guestName: string } | null>(null)
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -66,6 +77,28 @@ export function BookingsPageContent({
   }
 
   return (
+    <>
+    {/* Slip Image Modal */}
+    <Dialog open={!!selectedSlip} onOpenChange={(open) => !open && setSelectedSlip(null)}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            {t('bookings.paymentSlip')} - {selectedSlip?.guestName}
+          </DialogTitle>
+        </DialogHeader>
+        {selectedSlip && (
+          <div className="relative w-full aspect-[3/4] max-h-[70vh] bg-gray-100 rounded-lg overflow-hidden">
+            <Image
+              src={selectedSlip.url}
+              alt="Payment Slip"
+              fill
+              className="object-contain"
+            />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -116,7 +149,22 @@ export function BookingsPageContent({
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                      {/* Payment Slip Button */}
+                      {booking.payment_slip_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 cursor-pointer"
+                          onClick={() => setSelectedSlip({
+                            url: booking.payment_slip_url!,
+                            guestName: booking.user?.full_name || booking.user?.email || 'Guest'
+                          })}
+                        >
+                          <Receipt className="h-4 w-4" />
+                          <span className="hidden sm:inline">{t('bookings.viewSlip')}</span>
+                        </Button>
+                      )}
                       <div className="text-right">
                         <p className="text-lg font-semibold" style={{ color: tenant.primary_color }}>
                           {formatPrice(booking.total_price, currency)}
@@ -155,6 +203,7 @@ export function BookingsPageContent({
         </div>
       )}
     </div>
+    </>
   )
 }
 

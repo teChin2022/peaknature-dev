@@ -180,7 +180,40 @@
     "redirecting": "Redirecting to confirmation...",
     "qrExpired": "QR Code expired. Please try again",
     "waitingForUpload": "Waiting for upload from phone",
-    "timeRemaining": "Time remaining"
+    "timeRemaining": "Time remaining",
+    "dateErrors": {
+      "alreadyBooked": "This date is already booked. Please select a different check-in date.",
+      "blockedByHost": "These dates are blocked by the host. Try selecting different dates.",
+      "datesUnavailable": "Someone has already booked these dates. Try selecting different dates.",
+      "datesNotAvailable": "Dates Not Available",
+      "chooseDifferent": "Choose Different Dates"
+    }
+  },
+  "paymentPage": {
+    "title": "Complete Your Payment",
+    "subtitle": "Scan the QR code with your banking app, then upload the payment slip",
+    "backToRoom": "Back to room",
+    "scanToPay": "Scan to Pay",
+    "amountToPay": "Amount to pay",
+    "payTo": "Pay to",
+    "uploadSlip": "Upload Payment Slip",
+    "qrNotConfigured": "PromptPay QR not configured",
+    "contactHost": "Please contact the host",
+    "havingTrouble": "Having trouble? Contact us:",
+    "call": "Call",
+    "important": "Important",
+    "importantMessage": "Complete your payment within the time limit. If the timer expires, your reservation will be released and the dates may become unavailable.",
+    "paymentVerified": "Payment Verified!",
+    "bookingConfirmed": "Your booking is now confirmed. Redirecting to confirmation page...",
+    "paymentExpired": "Payment Time Expired",
+    "paymentExpiredMessage": "The payment window has expired. The dates have been released and may no longer be available.",
+    "tryAgain": "Try Booking Again",
+    "backToHome": "Back to Home",
+    "error": "Error",
+    "somethingWrong": "Something went wrong",
+    "verifying": "Verifying payment...",
+    "verifyingMessage": "Please wait while we verify your payment",
+    "uploadError": "Upload failed. Please try again."
   },
   "room": {
     "rooms": "Rooms",
@@ -402,7 +435,9 @@
       "guest": "Guest",
       "night": "night",
       "nights": "nights",
-      "bookedOn": "Booked on"
+      "bookedOn": "Booked on",
+      "viewSlip": "View Slip",
+      "paymentSlip": "Payment Slip"
     },
     "guests": {
       "title": "Guests",

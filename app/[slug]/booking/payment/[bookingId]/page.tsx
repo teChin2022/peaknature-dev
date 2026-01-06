@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 import { SlipUpload } from '@/components/booking/slip-upload'
 import { Tenant, Booking, Room, TenantSettings, defaultTenantSettings } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
+import { useTranslations } from 'next-intl'
 
 interface BookingWithRoom extends Booking {
   room: Room
@@ -29,6 +30,8 @@ export default function PaymentPage() {
   const slug = params.slug as string
   const bookingId = params.bookingId as string
   const supabase = createClient()
+  const t = useTranslations('paymentPage')
+  const tBooking = useTranslations('booking')
 
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [booking, setBooking] = useState<BookingWithRoom | null>(null)
@@ -314,10 +317,10 @@ export default function PaymentPage() {
         <Card className="max-w-md">
           <CardContent className="p-6 text-center">
             <XCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-            <h2 className="text-xl font-semibold text-stone-900 mb-2">Error</h2>
-            <p className="text-stone-600 mb-4">{error || 'Something went wrong'}</p>
+            <h2 className="text-xl font-semibold text-stone-900 mb-2">{t('error')}</h2>
+            <p className="text-stone-600 mb-4">{error || t('somethingWrong')}</p>
             <Link href={`/${slug}`}>
-              <Button>Back to Home</Button>
+              <Button>{t('backToHome')}</Button>
             </Link>
           </CardContent>
         </Card>
@@ -337,9 +340,9 @@ export default function PaymentPage() {
             >
               <CheckCircle2 className="h-10 w-10" style={{ color: tenant.primary_color }} />
             </div>
-            <h2 className="text-2xl font-bold text-stone-900 mb-2">Payment Verified!</h2>
+            <h2 className="text-2xl font-bold text-stone-900 mb-2">{t('paymentVerified')}</h2>
             <p className="text-stone-600 mb-6">
-              Your booking is now confirmed. Redirecting to confirmation page...
+              {t('bookingConfirmed')}
             </p>
             <Loader2 className="h-6 w-6 animate-spin mx-auto text-stone-400" />
           </CardContent>
@@ -357,20 +360,20 @@ export default function PaymentPage() {
             <div className="h-20 w-20 mx-auto rounded-full bg-red-50 flex items-center justify-center mb-6">
               <Clock className="h-10 w-10 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-stone-900 mb-2">Payment Time Expired</h2>
+            <h2 className="text-2xl font-bold text-stone-900 mb-2">{t('paymentExpired')}</h2>
             <p className="text-stone-600 mb-6">
-              The payment window has expired. The dates have been released and may no longer be available.
+              {t('paymentExpiredMessage')}
             </p>
             <div className="space-y-3">
               <Link href={`/${slug}/rooms/${booking.room_id}`} className="block">
-                <Button className="w-full" style={{ backgroundColor: tenant.primary_color }}>
+                <Button className="w-full cursor-pointer" style={{ backgroundColor: tenant.primary_color }}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Try Booking Again
+                  {t('tryAgain')}
                 </Button>
               </Link>
               <Link href={`/${slug}`} className="block">
-                <Button variant="outline" className="w-full">
-                  Back to Home
+                <Button variant="outline" className="w-full cursor-pointer">
+                  {t('backToHome')}
                 </Button>
               </Link>
             </div>
@@ -411,7 +414,7 @@ export default function PaymentPage() {
               className="inline-flex items-center gap-2 text-stone-600 hover:text-stone-900 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span className="hidden sm:inline">Back to room</span>
+              <span className="hidden sm:inline">{t('backToRoom')}</span>
             </Link>
             
             {/* Countdown Timer */}
@@ -429,10 +432,10 @@ export default function PaymentPage() {
 
       <div className="mx-auto max-w-3xl px-6 py-8">
         <h1 className="text-2xl md:text-3xl font-bold text-stone-900 mb-2">
-          Complete Your Payment
+          {t('title')}
         </h1>
         <p className="text-stone-600 mb-8">
-          Scan the QR code with your banking app, then upload the payment slip
+          {t('subtitle')}
         </p>
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -441,7 +444,7 @@ export default function PaymentPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <span style={{ color: tenant.primary_color }}>1</span>
-                Scan to Pay
+                {t('scanToPay')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -461,7 +464,7 @@ export default function PaymentPage() {
 
                   {/* Amount */}
                   <div className="text-center">
-                    <p className="text-sm text-stone-500 mb-1">Amount to pay</p>
+                    <p className="text-sm text-stone-500 mb-1">{t('amountToPay')}</p>
                     <p className="text-3xl font-bold" style={{ color: tenant.primary_color }}>
                       {formattedAmount}
                     </p>
@@ -471,7 +474,7 @@ export default function PaymentPage() {
                   {settings.payment?.promptpay_name && (
                     <div className="bg-stone-50 rounded-lg p-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-stone-500">Pay to</span>
+                        <span className="text-stone-500">{t('payTo')}</span>
                         <span className="font-medium text-stone-900">{settings.payment.promptpay_name}</span>
                       </div>
                     </div>
@@ -480,8 +483,8 @@ export default function PaymentPage() {
               ) : (
                 <div className="text-center py-8">
                   <AlertCircle className="h-12 w-12 mx-auto text-amber-500 mb-4" />
-                  <p className="text-stone-600">PromptPay QR not configured</p>
-                  <p className="text-sm text-stone-500 mt-2">Please contact the host</p>
+                  <p className="text-stone-600">{t('qrNotConfigured')}</p>
+                  <p className="text-sm text-stone-500 mt-2">{t('contactHost')}</p>
                 </div>
               )}
             </CardContent>
@@ -492,7 +495,7 @@ export default function PaymentPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <span style={{ color: tenant.primary_color }}>2</span>
-                Upload Payment Slip
+                {t('uploadSlip')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -505,19 +508,19 @@ export default function PaymentPage() {
 
               {/* Contact for help */}
               <div className="mt-6 pt-6 border-t">
-                <p className="text-sm text-stone-600 mb-3">Having trouble? Contact us:</p>
+                <p className="text-sm text-stone-600 mb-3">{t('havingTrouble')}</p>
                 <div className="flex flex-wrap gap-2">
                   {settings.contact.phone && (
                     <a href={`tel:${settings.contact.phone}`}>
-                      <Button variant="outline" size="sm" className="gap-2">
+                      <Button variant="outline" size="sm" className="gap-2 cursor-pointer">
                         <Phone className="h-4 w-4" />
-                        Call
+                        {t('call')}
                       </Button>
                     </a>
                   )}
                   {settings.social.line && (
                     <a href={`https://line.me/R/ti/p/${settings.social.line}`} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm" className="gap-2">
+                      <Button variant="outline" size="sm" className="gap-2 cursor-pointer">
                         <MessageCircle className="h-4 w-4" />
                         LINE
                       </Button>
@@ -567,10 +570,9 @@ export default function PaymentPage() {
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-amber-800">
-              <p className="font-medium">Important</p>
+              <p className="font-medium">{t('important')}</p>
               <p className="mt-1">
-                Complete your payment within the time limit. If the timer expires, your reservation 
-                will be released and the dates may become unavailable.
+                {t('importantMessage')}
               </p>
             </div>
           </div>

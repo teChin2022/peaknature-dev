@@ -139,7 +139,7 @@ export function BookingForm({
     if (range.from && !range.to) {
       // Validate check-in is not a booked night
       if (isBookedNight(range.from)) {
-        setRangeError('This date is already booked. Please select a different check-in date.')
+        setRangeError(t('dateErrors.alreadyBooked'))
         return
       }
       setDateRange(range)
@@ -156,7 +156,7 @@ export function BookingForm({
       const hasBlockedDate = daysInRange.some(day => isBlocked(day))
       
       if (hasBlockedDate) {
-        setRangeError('These dates are blocked by the host. Try selecting different dates.')
+        setRangeError(t('dateErrors.blockedByHost'))
         setDateRange({ from: checkIn, to: undefined })
         return
       }
@@ -164,7 +164,7 @@ export function BookingForm({
       // Check for overlapping bookings
       // Two stays overlap if: our check-in < their check-out AND our check-out > their check-in
       if (hasOverlap(checkIn, checkOut)) {
-        setRangeError('Someone has already booked these dates. Try selecting different dates.')
+        setRangeError(t('dateErrors.datesUnavailable'))
         setDateRange({ from: checkIn, to: undefined })
         return
       }
@@ -332,7 +332,7 @@ export function BookingForm({
               <CalendarX2 className="h-8 w-8 text-amber-600" />
             </div>
             <AlertDialogTitle className="text-xl">
-              {locale === 'th' ? 'วันที่ไม่ว่าง' : 'Dates Not Available'}
+              {t('dateErrors.datesNotAvailable')}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-base">
               {rangeError}
@@ -340,11 +340,11 @@ export function BookingForm({
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-center">
             <AlertDialogAction
-              className="px-8"
+              className="px-8 cursor-pointer"
               style={{ backgroundColor: tenant.primary_color }}
               onClick={() => setRangeError(null)}
             >
-              {locale === 'th' ? 'เลือกวันอื่น' : 'Choose Different Dates'}
+              {t('dateErrors.chooseDifferent')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

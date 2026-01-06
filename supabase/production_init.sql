@@ -757,7 +757,8 @@ RETURNS TABLE (
   room_name TEXT,
   guest_full_name TEXT,
   guest_email TEXT,
-  guest_phone TEXT
+  guest_phone TEXT,
+  payment_slip_url TEXT
 ) AS $$
 BEGIN
   IF NOT (
@@ -793,7 +794,8 @@ BEGIN
     r.name as room_name,
     p.full_name as guest_full_name,
     p.email as guest_email,
-    p.phone as guest_phone
+    p.phone as guest_phone,
+    b.payment_slip_url
   FROM public.bookings b
   LEFT JOIN public.rooms r ON b.room_id = r.id
   LEFT JOIN public.profiles p ON b.user_id = p.id
