@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Users, Mail, Phone, Calendar, MoreVertical, Trash2, Loader2, AlertTriangle } from 'lucide-react'
+import { Users, Mail, Phone, Calendar, MoreVertical, Trash2, Loader2, AlertTriangle, MapPin } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useTranslations } from 'next-intl'
 
@@ -61,6 +61,7 @@ function formatDateSafe(dateString: string, isMounted: boolean): string {
 }
 
 export function GuestList({ guests: initialGuests, tenantId, primaryColor }: GuestListProps) {
+  const t = useTranslations('dashboard')
   const [guests, setGuests] = useState<GuestData[]>(initialGuests)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedGuest, setSelectedGuest] = useState<GuestProfile | null>(null)
@@ -125,9 +126,9 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
       <Card className="bg-white">
         <CardContent className="flex flex-col items-center justify-center py-12">
           <Users className="h-12 w-12 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No guests yet</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">{t('guests.noGuests')}</h3>
           <p className="text-gray-500 text-center">
-            Guests will appear here once they register on your site
+            {t('guests.noGuestsDesc')}
           </p>
         </CardContent>
       </Card>
@@ -190,8 +191,17 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
                 </div>
               )}
               {profile.province && (
-                <div className="text-gray-500 text-xs">
-                  📍 {profile.district && `${profile.district}, `}{profile.province}
+                <div className="flex items-start gap-2 text-gray-600">
+                  <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    {profile.sub_district && (
+                      <span>{profile.sub_district}, </span>
+                    )}
+                    {profile.district && (
+                      <span>{profile.district}, </span>
+                    )}
+                    <span className="font-medium">{profile.province}</span>
+                  </div>
                 </div>
               )}
               <div className="flex items-center gap-2 text-gray-500">

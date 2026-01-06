@@ -854,7 +854,7 @@ export type Database = {
         }[]
       }
       create_tenant_for_registration: {
-        Args: { p_name: string; p_slug: string; p_plan?: string }
+        Args: { p_name: string; p_slug: string; p_primary_color?: string; p_plan?: string }
         Returns: string
       }
       set_user_as_host: {
