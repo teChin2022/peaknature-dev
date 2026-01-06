@@ -10,6 +10,11 @@ export async function middleware(request: NextRequest) {
   
   const pathname = request.nextUrl.pathname
   
+  // If Supabase is not configured, skip all auth-related middleware
+  if (!supabase) {
+    return supabaseResponse
+  }
+  
   // Check if this is a host route
   if (pathname.startsWith('/host')) {
     // Allow access to login and register pages without auth
@@ -155,4 +160,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
-
