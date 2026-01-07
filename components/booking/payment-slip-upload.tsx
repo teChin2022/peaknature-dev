@@ -14,10 +14,17 @@ import { useLanguage } from '@/components/providers/language-provider'
 
 // Generate SHA-256 hash of file content for duplicate detection
 async function generateFileHash(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  try {
+    const buffer = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  } catch (error) {
+    console.error('[generateFileHash] Error generating hash:', error)
+    // Fallback: use file name + size + last modified as a pseudo-hash
+    const fallbackHash = `${file.name}-${file.size}-${file.lastModified}`
+    return fallbackHash
+  }
 }
 
 interface PaymentSlipUploadProps {
@@ -95,12 +102,25 @@ export function PaymentSlipUpload({
     // Upload to Supabase Storage
     setIsUploading(true)
     try {
+      // Check if user is authenticated first
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        console.error('[PaymentSlipUpload] User not authenticated')
+        setError('Please log in first before uploading payment slip')
+        setPreview(null)
+        setIsUploading(false)
+        return
+      }
+      console.log('[PaymentSlipUpload] User authenticated:', user.id.substring(0, 8) + '...')
+
       // Generate content hash FIRST for duplicate detection
+      console.log('[PaymentSlipUpload] Starting hash generation...')
       const contentHash = await generateFileHash(file)
       console.log('[PaymentSlipUpload] Content hash generated:', contentHash.substring(0, 16) + '...')
       
       const fileName = `payment-slips/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
       
+      console.log('[PaymentSlipUpload] Uploading to storage...', { fileName, fileSize: file.size, fileType: file.type })
       const { data, error: uploadErr } = await supabase.storage
         .from('bookings')
         .upload(fileName, file, {
@@ -109,21 +129,25 @@ export function PaymentSlipUpload({
         })
 
       if (uploadErr) {
-        setError('Failed to upload image. Please try again.')
+        console.error('[PaymentSlipUpload] Upload error:', uploadErr)
+        setError(`Failed to upload image: ${uploadErr.message}`)
         setPreview(null)
+        setIsUploading(false)
         return
       }
 
+      console.log('[PaymentSlipUpload] Upload successful, getting public URL...')
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('bookings')
         .getPublicUrl(data.path)
 
+      console.log('[PaymentSlipUpload] Public URL obtained:', publicUrl.substring(0, 50) + '...')
       setSlipUrl(publicUrl)
       setSlipContentHash(contentHash) // Store content hash for verification
 
     } catch (err) {
-      console.error('Upload error:', err)
+      console.error('[PaymentSlipUpload] Upload error:', err)
       setError('An error occurred. Please try again.')
       setPreview(null)
     } finally {

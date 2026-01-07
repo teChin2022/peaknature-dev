@@ -9,10 +9,17 @@ import { useTranslations } from 'next-intl'
 
 // Generate SHA-256 hash of file content for duplicate detection
 async function generateFileHash(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  try {
+    const buffer = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  } catch (error) {
+    console.error('[generateFileHash] Error generating hash:', error)
+    // Fallback: use file name + size + last modified as a pseudo-hash
+    const fallbackHash = `${file.name}-${file.size}-${file.lastModified}`
+    return fallbackHash
+  }
 }
 
 interface SlipUploadProps {
