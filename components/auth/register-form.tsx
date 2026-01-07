@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Tenant } from '@/types/database'
 import { OAuthButtons } from './oauth-buttons'
 import { useTranslations } from 'next-intl'
+import { getAppBaseUrl } from '@/lib/utils'
 
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -58,7 +59,7 @@ export function RegisterForm({ tenant, redirectTo }: RegisterFormProps) {
 
     try {
       // Use NEXT_PUBLIC_APP_URL if available, otherwise fallback to window.location.origin
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+      const baseUrl = getAppBaseUrl()
       const redirectUrl = `${baseUrl}/${tenant.slug}/auth/callback?next=${encodeURIComponent(redirectTo || `/${tenant.slug}`)}`
       console.log('Registration redirect URL:', redirectUrl)
       

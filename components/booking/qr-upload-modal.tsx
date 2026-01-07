@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { getAppBaseUrl } from '@/lib/utils'
 
 interface QRUploadModalProps {
   isOpen: boolean
@@ -46,7 +47,7 @@ export function QRUploadModal({
   const [error, setError] = useState<string | null>(null)
 
   // Generate upload URL - falls back to current domain if env var not set
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+  const baseUrl = getAppBaseUrl()
   const uploadUrl = token ? `${baseUrl}/upload/${token}` : ''
 
   // Create token when modal opens

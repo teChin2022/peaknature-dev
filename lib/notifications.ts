@@ -4,8 +4,18 @@
  * Handles sending notifications via Email and LINE Messaging API
  */
 
+import { removeTrailingSlash } from './utils'
+
 // LINE Messaging API endpoint
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push'
+
+/**
+ * Get the app base URL (server-side), ensuring no trailing slash
+ */
+function getServerBaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || ''
+  return removeTrailingSlash(url)
+}
 
 export interface LineMessageOptions {
   channelAccessToken: string
@@ -371,7 +381,7 @@ export function generateGuestConfirmationEmail(params: {
     checkInTime, checkOutTime, tenantName, tenantSlug, primaryColor = '#10b981', notes
   } = params
 
-  const confirmationUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || ''}/${tenantSlug}/my-bookings`
+  const confirmationUrl = `${getServerBaseUrl()}/${tenantSlug}/my-bookings`
 
   const emailHtml = `
 <!DOCTYPE html>
@@ -519,7 +529,7 @@ export function generateWaitlistNotification(params: {
       <p><strong>Room:</strong> ${roomName}</p>
       <p><strong>Dates:</strong> ${checkIn} - ${checkOut}</p>
       
-      <a href="${process.env.NEXT_PUBLIC_APP_URL}/${tenantSlug}/rooms" class="btn">
+      <a href="${getServerBaseUrl()}/${tenantSlug}/rooms" class="btn">
         Book Now →
       </a>
       

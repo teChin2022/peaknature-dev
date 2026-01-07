@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
+import { getAppBaseUrl } from '@/lib/utils'
 
 interface OAuthButtonsProps {
   tenantSlug: string
@@ -22,7 +23,7 @@ export function OAuthButtons({ tenantSlug, redirectTo, mode = 'login' }: OAuthBu
 
     try {
       // Use NEXT_PUBLIC_APP_URL if available, otherwise fallback to window.location.origin
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+      const baseUrl = getAppBaseUrl()
       const callbackUrl = `${baseUrl}/${tenantSlug}/auth/callback?next=${encodeURIComponent(redirectTo || `/${tenantSlug}`)}`
       
       const { error } = await supabase.auth.signInWithOAuth({
