@@ -23,7 +23,6 @@ import { Tenant, Profile } from '@/types/database'
 import { GuestLocationSelector } from '@/components/guest-location-selector'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { useTranslations } from 'next-intl'
-import { useLanguage } from '@/components/providers/language-provider'
 
 interface GuestSettingsFormProps {
   slug: string
@@ -35,7 +34,9 @@ interface GuestSettingsFormProps {
 export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestSettingsFormProps) {
   const supabase = createClient()
   const t = useTranslations('settings')
-  const { locale } = useLanguage()
+  const tAuth = useTranslations('auth')
+  const tErrors = useTranslations('errors')
+  const tCommon = useTranslations('common')
 
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -72,12 +73,12 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
 
     // Validate required fields
     if (!formData.phone?.trim() || formData.phone.trim().length < 10) {
-      setError(locale === 'th' ? 'กรุณากรอกเบอร์โทรศัพท์ที่ถูกต้อง (อย่างน้อย 10 หลัก)' : 'Please enter a valid phone number (at least 10 digits)')
+      setError(tErrors('phoneMin'))
       return
     }
 
     if (!formData.province) {
-      setError(locale === 'th' ? 'กรุณาเลือกจังหวัด' : 'Please select your province')
+      setError(t('selectProvince'))
       return
     }
 
@@ -108,13 +109,13 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
         .eq('id', profile.id)
 
       if (!response.ok || updateError) {
-        setError(locale === 'th' ? 'บันทึกไม่สำเร็จ กรุณาลองใหม่' : 'Failed to update profile. Please try again.')
+        setError(tErrors('somethingWrong'))
       } else {
         setSuccess(true)
         setTimeout(() => setSuccess(false), 3000)
       }
     } catch {
-      setError(locale === 'th' ? 'เกิดข้อผิดพลาด กรุณาลองใหม่' : 'Something went wrong. Please try again.')
+      setError(tErrors('somethingWrong'))
     } finally {
       setIsSaving(false)
     }
@@ -143,7 +144,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
       window.location.href = `/${slug}?deleted=true`
     } catch (err) {
       console.error('Delete account error:', err)
-      setError(locale === 'th' ? 'ลบบัญชีไม่สำเร็จ กรุณาลองใหม่หรือติดต่อฝ่ายสนับสนุน' : 'Failed to delete account. Please try again or contact support.')
+      setError(tErrors('somethingWrong'))
       setIsDeleting(false)
       setShowDeleteDialog(false)
     }
@@ -156,22 +157,22 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
 
     // Validate passwords
     if (!passwordData.currentPassword) {
-      setPasswordError(locale === 'th' ? 'กรุณากรอกรหัสผ่านปัจจุบัน' : 'Please enter your current password')
+      setPasswordError(tErrors('required'))
       return
     }
 
     if (passwordData.newPassword.length < 6) {
-      setPasswordError(locale === 'th' ? 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร' : 'New password must be at least 6 characters')
+      setPasswordError(tErrors('passwordMin'))
       return
     }
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError(locale === 'th' ? 'รหัสผ่านใหม่ไม่ตรงกัน' : 'New passwords do not match')
+      setPasswordError(tErrors('passwordMismatch'))
       return
     }
 
     if (passwordData.currentPassword === passwordData.newPassword) {
-      setPasswordError(locale === 'th' ? 'รหัสผ่านใหม่ต้องไม่เหมือนรหัสผ่านเดิม' : 'New password must be different from current password')
+      setPasswordError(tErrors('samePassword'))
       return
     }
 
@@ -185,7 +186,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
       })
 
       if (signInError) {
-        setPasswordError(locale === 'th' ? 'รหัสผ่านปัจจุบันไม่ถูกต้อง' : 'Current password is incorrect')
+        setPasswordError(tErrors('incorrectPassword'))
         setIsChangingPassword(false)
         return
       }
@@ -196,7 +197,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
       })
 
       if (updateError) {
-        setPasswordError(updateError.message || (locale === 'th' ? 'เปลี่ยนรหัสผ่านไม่สำเร็จ' : 'Failed to update password'))
+        setPasswordError(updateError.message || tErrors('somethingWrong'))
         setIsChangingPassword(false)
         return
       }
@@ -206,7 +207,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setTimeout(() => setPasswordSuccess(false), 5000)
     } catch {
-      setPasswordError(locale === 'th' ? 'เกิดข้อผิดพลาด กรุณาลองใหม่' : 'Something went wrong. Please try again.')
+      setPasswordError(tErrors('somethingWrong'))
     } finally {
       setIsChangingPassword(false)
     }
@@ -232,7 +233,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
             className="inline-flex items-center gap-2 text-stone-600 hover:text-stone-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            {locale === 'th' ? 'กลับไป' : 'Back to'} {tenant.name}
+            {tCommon('backTo')} {tenant.name}
           </Link>
         </div>
       </div>
@@ -289,19 +290,19 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
 
               {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="full_name">{locale === 'th' ? 'ชื่อ-นามสกุล' : 'Full Name'}</Label>
+                <Label htmlFor="full_name">{t('fullName')}</Label>
                 <Input
                   id="full_name"
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder={locale === 'th' ? 'กรอกชื่อ-นามสกุล' : 'Enter your full name'}
+                  placeholder={tAuth('fullName')}
                 />
               </div>
 
               {/* Email (Read-only) */}
               <div className="space-y-2">
-                <Label htmlFor="email">{locale === 'th' ? 'อีเมล' : 'Email Address'}</Label>
+                <Label htmlFor="email">{t('email')}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                   <Input
@@ -313,13 +314,13 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                   />
                 </div>
                 <p className="text-xs text-stone-500">
-                  {locale === 'th' ? 'ไม่สามารถเปลี่ยนอีเมลได้ ติดต่อฝ่ายสนับสนุนหากต้องการเปลี่ยน' : 'Email cannot be changed. Contact support if you need to update it.'}
+                  {t('emailHint')}
                 </p>
               </div>
 
               {/* Phone */}
               <div className="space-y-2">
-                <Label htmlFor="phone">{locale === 'th' ? 'เบอร์โทรศัพท์' : 'Phone Number'} <span className="text-red-500">*</span></Label>
+                <Label htmlFor="phone">{t('phone')} <span className="text-red-500">*</span></Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                   <Input
@@ -340,10 +341,10 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                {locale === 'th' ? 'ที่อยู่' : 'Location'}
+                {t('location')}
               </CardTitle>
               <CardDescription>
-                {locale === 'th' ? 'ที่อยู่ของคุณช่วยให้เราเข้าใจว่าแขกมาจากที่ไหน' : 'Your location helps us understand where our guests come from'}
+                {t('locationDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -380,7 +381,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
               {success && (
                 <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2 text-sm">
                   <Check className="h-4 w-4" />
-                  {locale === 'th' ? 'บันทึกโปรไฟล์สำเร็จ!' : 'Profile updated successfully!'}
+                  {t('profileUpdated')}
                 </div>
               )}
 
@@ -393,12 +394,12 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                 {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {locale === 'th' ? 'กำลังบันทึก...' : 'Saving...'}
+                    {t('saving')}
                   </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    {locale === 'th' ? 'บันทึก' : 'Save Changes'}
+                    {t('saveChanges')}
                   </>
                 )}
               </Button>
@@ -412,17 +413,17 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Lock className="h-5 w-5" />
-                {locale === 'th' ? 'เปลี่ยนรหัสผ่าน' : 'Change Password'}
+                {t('changePassword')}
               </CardTitle>
               <CardDescription>
-                {locale === 'th' ? 'อัปเดตรหัสผ่านเพื่อความปลอดภัยของบัญชี' : 'Update your password to keep your account secure'}
+                {t('changePasswordDesc')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handlePasswordChange} className="space-y-4">
                 {/* Current Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="currentPassword">{locale === 'th' ? 'รหัสผ่านปัจจุบัน' : 'Current Password'}</Label>
+                  <Label htmlFor="currentPassword">{t('currentPassword')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                     <Input
@@ -430,7 +431,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={passwordData.currentPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      placeholder={locale === 'th' ? 'กรอกรหัสผ่านปัจจุบัน' : 'Enter current password'}
+                      placeholder={t('currentPassword')}
                       className="pl-10 pr-10"
                     />
                     <button
@@ -445,7 +446,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
 
                 {/* New Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="newPassword">{locale === 'th' ? 'รหัสผ่านใหม่' : 'New Password'}</Label>
+                  <Label htmlFor="newPassword">{t('newPassword')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                     <Input
@@ -453,7 +454,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                       type={showNewPassword ? 'text' : 'password'}
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      placeholder={locale === 'th' ? 'กรอกรหัสผ่านใหม่' : 'Enter new password'}
+                      placeholder={t('newPassword')}
                       className="pl-10 pr-10"
                     />
                     <button
@@ -464,12 +465,12 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                       {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <p className="text-xs text-stone-500">{locale === 'th' ? 'ต้องมีอย่างน้อย 6 ตัวอักษร' : 'Must be at least 6 characters'}</p>
+                  <p className="text-xs text-stone-500">{t('passwordHint')}</p>
                 </div>
 
                 {/* Confirm New Password */}
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">{locale === 'th' ? 'ยืนยันรหัสผ่านใหม่' : 'Confirm New Password'}</Label>
+                  <Label htmlFor="confirmPassword">{t('confirmNewPassword')}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                     <Input
@@ -477,7 +478,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                      placeholder={locale === 'th' ? 'ยืนยันรหัสผ่านใหม่' : 'Confirm new password'}
+                      placeholder={t('confirmNewPassword')}
                       className="pl-10 pr-10"
                     />
                     <button
@@ -500,7 +501,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                 {passwordSuccess && (
                   <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2 text-sm">
                     <Check className="h-4 w-4" />
-                    {locale === 'th' ? 'เปลี่ยนรหัสผ่านสำเร็จ!' : 'Password changed successfully!'}
+                    {t('passwordChanged')}
                   </div>
                 )}
 
@@ -513,12 +514,12 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                   {isChangingPassword ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {locale === 'th' ? 'กำลังเปลี่ยน...' : 'Changing Password...'}
+                      {t('changingPassword')}
                     </>
                   ) : (
                     <>
                       <Lock className="mr-2 h-4 w-4" />
-                      {locale === 'th' ? 'เปลี่ยนรหัสผ่าน' : 'Change Password'}
+                      {t('changePassword')}
                     </>
                   )}
                 </Button>
@@ -548,18 +549,18 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              {locale === 'th' ? 'โซนอันตราย' : 'Danger Zone'}
+              {t('dangerZone')}
             </CardTitle>
             <CardDescription>
-              {locale === 'th' ? 'การกระทำที่ไม่สามารถย้อนกลับได้' : 'Irreversible and destructive actions'}
+              {t('dangerZoneDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-red-50 rounded-lg border border-red-100">
               <div>
-                <h4 className="font-medium text-red-900">{locale === 'th' ? 'ลบบัญชี' : 'Delete Account'}</h4>
+                <h4 className="font-medium text-red-900">{t('deleteAccount')}</h4>
                 <p className="text-sm text-red-700 mt-1">
-                  {locale === 'th' ? 'ลบบัญชีและข้อมูลทั้งหมดอย่างถาวร รวมถึงการจองและรีวิว' : 'Permanently delete your account and all associated data including bookings and reviews.'}
+                  {t('deleteAccountDesc')}
                 </p>
               </div>
               <Button 
@@ -568,7 +569,7 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                 className="flex-shrink-0 cursor-pointer"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                {locale === 'th' ? 'ลบบัญชี' : 'Delete Account'}
+                {t('deleteAccount')}
               </Button>
             </div>
           </CardContent>
@@ -581,40 +582,40 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              {locale === 'th' ? 'ลบบัญชี' : 'Delete Account'}
+              {t('deleteConfirmTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {locale === 'th' ? 'การกระทำนี้ไม่สามารถย้อนกลับได้ บัญชีและข้อมูลทั้งหมดจะถูกลบอย่างถาวร' : 'This action cannot be undone. This will permanently delete your account and remove all your data.'}
+              {t('deleteConfirmDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           
           <div className="space-y-4 py-2">
             <div className="text-sm text-stone-600">
-              <p className="mb-2">{locale === 'th' ? 'ข้อมูลต่อไปนี้จะถูกลบอย่างถาวร:' : 'The following data will be permanently deleted:'}</p>
+              <p className="mb-2">{t('dataToDelete')}</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>{locale === 'th' ? 'ข้อมูลโปรไฟล์ของคุณ' : 'Your profile information'}</li>
-                <li>{locale === 'th' ? 'ประวัติการจองทั้งหมด' : 'All your booking history'}</li>
-                <li>{locale === 'th' ? 'รีวิวที่คุณเขียน' : 'Any reviews you have written'}</li>
+                <li>{t('profileInfo')}</li>
+                <li>{t('bookingHistory')}</li>
+                <li>{t('reviewsWritten')}</li>
               </ul>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="confirm-email" className="text-stone-700 text-sm">
-                {locale === 'th' ? 'กรุณาพิมพ์' : 'Please type'} <span className="font-semibold">{profile.email}</span> {locale === 'th' ? 'เพื่อยืนยัน:' : 'to confirm:'}
+                {t('deleteConfirmHint')} <span className="font-semibold">{profile.email}</span> {t('deleteConfirmHint2')}
               </Label>
               <Input
                 id="confirm-email"
                 type="email"
                 value={deleteConfirmEmail}
                 onChange={(e) => setDeleteConfirmEmail(e.target.value)}
-                placeholder={locale === 'th' ? 'กรอกอีเมลของคุณ' : 'Enter your email'}
+                placeholder={tAuth('email')}
               />
             </div>
           </div>
 
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteConfirmEmail('')}>
-              {locale === 'th' ? 'ยกเลิก' : 'Cancel'}
+              {tCommon('cancel')}
             </AlertDialogCancel>
             <Button
               variant="destructive"
@@ -625,10 +626,10 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
               {isDeleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {locale === 'th' ? 'กำลังลบ...' : 'Deleting...'}
+                  {t('deleting')}
                 </>
               ) : (
-                locale === 'th' ? 'ลบบัญชีของฉัน' : 'Delete My Account'
+                t('deleteMyAccount')
               )}
             </Button>
           </AlertDialogFooter>

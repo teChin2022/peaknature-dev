@@ -22,15 +22,18 @@ import {
 } from '@/components/ui/dialog'
 import { createClient } from '@/lib/supabase/client'
 import { Room } from '@/types/database'
+import { useTranslations } from 'next-intl'
 
 interface RoomActionsProps {
   room: Room
-  slug: string
+  tenantSlug: string
 }
 
-export function RoomActions({ room, slug }: RoomActionsProps) {
+export function RoomActions({ room, tenantSlug }: RoomActionsProps) {
   const router = useRouter()
   const supabase = createClient()
+  const t = useTranslations('dashboard.rooms')
+  const tCommon = useTranslations('common')
   const [isLoading, setIsLoading] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
@@ -81,15 +84,15 @@ export function RoomActions({ room, slug }: RoomActionsProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild>
-            <Link href={`/${slug}/dashboard/rooms/${room.id}`} className="flex items-center gap-2">
+            <Link href={`/${tenantSlug}/dashboard/rooms/${room.id}`} className="flex items-center gap-2">
               <Edit2 className="h-4 w-4" />
-              Edit
+              {t('editRoom')}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={`/${slug}/rooms/${room.id}`} target="_blank" className="flex items-center gap-2">
+            <Link href={`/${tenantSlug}/rooms/${room.id}`} target="_blank" className="flex items-center gap-2">
               <Eye className="h-4 w-4" />
-              View Public
+              {t('viewPublic')}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -97,12 +100,12 @@ export function RoomActions({ room, slug }: RoomActionsProps) {
             {room.is_active ? (
               <>
                 <EyeOff className="h-4 w-4" />
-                Deactivate
+                {t('deactivate')}
               </>
             ) : (
               <>
                 <Eye className="h-4 w-4" />
-                Activate
+                {t('activate')}
               </>
             )}
           </DropdownMenuItem>
@@ -111,7 +114,7 @@ export function RoomActions({ room, slug }: RoomActionsProps) {
             className="flex items-center gap-2 text-red-600"
           >
             <Trash2 className="h-4 w-4" />
-            Delete
+            {tCommon('delete')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -120,10 +123,9 @@ export function RoomActions({ room, slug }: RoomActionsProps) {
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Room</DialogTitle>
+            <DialogTitle>{t('deleteRoom')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{room.name}&quot;? This action cannot be undone.
-              All bookings associated with this room will also be affected.
+              {t('deleteRoomDesc', { name: room.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -132,7 +134,7 @@ export function RoomActions({ room, slug }: RoomActionsProps) {
               onClick={() => setShowDeleteDialog(false)}
               disabled={isLoading}
             >
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -142,10 +144,10 @@ export function RoomActions({ room, slug }: RoomActionsProps) {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t('deleting')}
                 </>
               ) : (
-                'Delete Room'
+                t('deleteRoom')
               )}
             </Button>
           </DialogFooter>

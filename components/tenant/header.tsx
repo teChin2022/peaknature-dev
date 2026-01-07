@@ -28,6 +28,7 @@ export function TenantHeader({ tenant, user }: TenantHeaderProps) {
   const { locale, setLocale } = useLanguage()
   const t = useTranslations('nav')
   const tAuth = useTranslations('auth')
+  const tSettings = useTranslations('settings')
 
   // Toggle between languages
   const toggleLanguage = () => {
@@ -83,19 +84,19 @@ export function TenantHeader({ tenant, user }: TenantHeaderProps) {
             href={`/${tenant.slug}#amenities`}
             className="text-sm font-medium text-stone-600 transition-colors hover:text-stone-900"
           >
-            {locale === 'th' ? 'สิ่งอำนวยความสะดวก' : 'Amenities'}
+            {t('amenities')}
           </Link>
           <Link 
             href={`/${tenant.slug}#location`}
             className="text-sm font-medium text-stone-600 transition-colors hover:text-stone-900"
           >
-            {locale === 'th' ? 'ที่ตั้ง' : 'Location'}
+            {t('location')}
           </Link>
           <Link 
             href={`/${tenant.slug}#contact`}
             className="text-sm font-medium text-stone-600 transition-colors hover:text-stone-900"
           >
-            {locale === 'th' ? 'ติดต่อ' : 'Contact'}
+            {t('contact')}
           </Link>
         </div>
 
@@ -220,28 +221,28 @@ export function TenantHeader({ tenant, user }: TenantHeaderProps) {
               className="text-base font-medium text-stone-900"
               onClick={() => setMobileMenuOpen(false)}
             >
-              {locale === 'th' ? 'สิ่งอำนวยความสะดวก' : 'Amenities'}
+              {t('amenities')}
             </Link>
             <Link 
               href={`/${tenant.slug}#location`}
               className="text-base font-medium text-stone-900"
               onClick={() => setMobileMenuOpen(false)}
             >
-              {locale === 'th' ? 'ที่ตั้ง' : 'Location'}
+              {t('location')}
             </Link>
             <Link 
               href={`/${tenant.slug}#contact`}
               className="text-base font-medium text-stone-900"
               onClick={() => setMobileMenuOpen(false)}
             >
-              {locale === 'th' ? 'ติดต่อ' : 'Contact'}
+              {t('contact')}
             </Link>
             <hr className="border-stone-200" />
             {/* Language Switcher - Mobile */}
             <div className="flex flex-col gap-2">
               <span className="text-sm text-stone-500 flex items-center gap-2">
                 <Globe className="h-4 w-4" />
-                {locale === 'th' ? 'เลือกภาษา' : 'Select Language'}
+                {tSettings('language')}
               </span>
               <div className="flex gap-2">
                 <button

@@ -9,7 +9,6 @@ import { Room, CurrencyCode } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
 import { RoomCardImage } from '@/components/room/room-card-image'
 import { useTranslations } from 'next-intl'
-import { useLanguage } from '@/components/providers/language-provider'
 
 const amenityIcons: Record<string, React.ReactNode> = {
   wifi: <Wifi className="h-4 w-4" />,
@@ -27,13 +26,8 @@ interface RoomCardClientProps {
 
 export function RoomCardClient({ room, tenantSlug, primaryColor, currency }: RoomCardClientProps) {
   const t = useTranslations('room')
-  const { locale } = useLanguage()
   const displayAmenities = room.amenities?.slice(0, 4) || []
   const images = room.images?.length ? room.images : ['https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80']
-  
-  const defaultDescription = locale === 'th' 
-    ? 'ห้องพักสะดวกสบายพร้อมสิ่งอำนวยความสะดวกครบครัน สัมผัสความสงบและความเป็นส่วนตัวในพื้นที่ที่ออกแบบมาเพื่อคุณ'
-    : 'A comfortable room with all the amenities you need for a perfect stay. Experience comfort and tranquility in our thoughtfully designed space.'
   
   return (
     <Card className="group border border-stone-200 hover:border-stone-300 transition-all duration-300 hover:shadow-lg overflow-hidden !p-0">
@@ -59,18 +53,18 @@ export function RoomCardClient({ room, tenantSlug, primaryColor, currency }: Roo
             </div>
             
             <p className="text-stone-600 mb-4 line-clamp-2">
-              {room.description || defaultDescription}
+              {room.description || t('noDescription')}
             </p>
 
             {/* Room Details */}
             <div className="flex flex-wrap items-center gap-4 mb-4 text-sm text-stone-600">
               <span className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                {t('upTo')} {room.max_guests} {locale === 'th' ? 'คน' : (room.max_guests > 1 ? 'guests' : 'guest')}
+                {t('upTo')} {room.max_guests} {room.max_guests > 1 ? t('guests') : t('guest')}
               </span>
               <span className="flex items-center gap-1.5">
                 <Calendar className="h-4 w-4" />
-                {t('minNights')}: {room.min_nights} {locale === 'th' ? 'คืน' : (room.min_nights > 1 ? 'nights' : 'night')}
+                {t('minNights')}: {room.min_nights} {room.min_nights > 1 ? t('nights') : t('night')}
               </span>
             </div>
 
@@ -89,7 +83,7 @@ export function RoomCardClient({ room, tenantSlug, primaryColor, currency }: Roo
                 ))}
                 {room.amenities && room.amenities.length > 4 && (
                   <Badge variant="secondary" className="bg-stone-100 text-stone-700 font-normal">
-                    +{room.amenities.length - 4} {locale === 'th' ? 'เพิ่มเติม' : 'more'}
+                    +{room.amenities.length - 4} {t('more')}
                   </Badge>
                 )}
               </div>

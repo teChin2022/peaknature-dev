@@ -14,7 +14,6 @@ import { StarRatingCompact } from '@/components/review/star-rating'
 import { Room, Tenant, CurrencyCode } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
 import { useTranslations } from 'next-intl'
-import { useLanguage } from '@/components/providers/language-provider'
 
 const amenityIcons: Record<string, React.ReactNode> = {
   wifi: <Wifi className="h-5 w-5" />,
@@ -56,11 +55,6 @@ export function RoomDetailClient({
 }: RoomDetailClientProps) {
   const t = useTranslations('room')
   const tBooking = useTranslations('booking')
-  const { locale } = useLanguage()
-
-  const defaultDescription = locale === 'th'
-    ? `ยินดีต้อนรับสู่ ${room.name} ห้องพักที่ออกแบบมาอย่างพิถีพิถันเพื่อความสะดวกสบายและสไตล์ที่ลงตัว ห้องนี้มีทุกสิ่งที่คุณต้องการสำหรับการพักผ่อนอย่างเต็มที่ ไม่ว่าคุณจะมาเพื่อธุรกิจหรือพักผ่อน`
-    : `Welcome to ${room.name}, a thoughtfully designed space that combines comfort with style. This room offers everything you need for a relaxing stay, from premium bedding to modern amenities. Whether you're here for business or leisure, you'll find the perfect environment to unwind and recharge.`
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -72,7 +66,7 @@ export function RoomDetailClient({
             className="inline-flex items-center gap-2 text-stone-600 hover:text-stone-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            {locale === 'th' ? 'กลับไปห้องพักทั้งหมด' : 'Back to all rooms'}
+            {t('backToAllRooms')}
           </Link>
         </div>
       </div>
@@ -96,7 +90,7 @@ export function RoomDetailClient({
                     style={{ backgroundColor: tenant.primary_color }}
                   >
                     <Star className="h-3 w-3 mr-1 fill-current" />
-                    {locale === 'th' ? 'ยอดนิยม' : 'Top Rated'}
+                    {t('topRated')}
                   </Badge>
                 )}
                 {totalReviews > 0 && (
@@ -114,11 +108,11 @@ export function RoomDetailClient({
               <div className="flex flex-wrap items-center gap-6 text-stone-600">
                 <span className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  {t('upTo')} {room.max_guests} {locale === 'th' ? 'คน' : 'guests'}
+                  {t('upTo')} {room.max_guests} {t('guests')}
                 </span>
                 <span className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  {t('minNights')}: {room.min_nights} {locale === 'th' ? 'คืน' : (room.min_nights > 1 ? 'nights' : 'night')}
+                  {t('minNights')}: {room.min_nights} {room.min_nights > 1 ? t('nights') : t('night')}
                 </span>
                 <span className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
@@ -132,10 +126,10 @@ export function RoomDetailClient({
             {/* Description */}
             <div>
               <h2 className="text-xl font-semibold text-stone-900 mb-4">
-                {locale === 'th' ? 'เกี่ยวกับห้องนี้' : 'About This Room'}
+                {t('aboutThisRoom')}
               </h2>
               <p className="text-stone-600 leading-relaxed">
-                {room.description || defaultDescription}
+                {room.description || t('noDescription')}
               </p>
             </div>
 
@@ -198,7 +192,7 @@ export function RoomDetailClient({
             {/* Check-in/out Times */}
             <div>
               <h2 className="text-xl font-semibold text-stone-900 mb-4">
-                {locale === 'th' ? 'เวลาเช็คอิน & เช็คเอาท์' : 'Check-in & Check-out'}
+                {t('checkInCheckOut')}
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-white rounded-xl border border-stone-200 p-5">
@@ -240,7 +234,7 @@ export function RoomDetailClient({
                       <span className="text-3xl font-bold" style={{ color: tenant.primary_color }}>
                         {formatPrice(room.base_price, currency)}
                       </span>
-                      <span className="text-stone-600"> / {locale === 'th' ? 'คืน' : 'night'}</span>
+                      <span className="text-stone-600"> / {t('night')}</span>
                     </div>
                     {totalReviews > 0 && (
                       <StarRatingCompact

@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import { RoomForm } from '@/components/dashboard/room-form'
+import { RoomPageHeader } from '@/components/dashboard/room-page-header'
 
 interface NewRoomPageProps {
   params: Promise<{ slug: string }>
@@ -32,18 +31,7 @@ export default async function NewRoomPage({ params }: NewRoomPageProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link 
-          href={`/${slug}/dashboard/rooms`}
-          className="p-2 rounded-lg hover:bg-stone-100 transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5 text-stone-600" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-stone-900">Add New Room</h1>
-          <p className="text-stone-600">Create a new room for your property</p>
-        </div>
-      </div>
+      <RoomPageHeader slug={slug} mode="create" />
 
       {/* Form */}
       <RoomForm tenant={tenant} mode="create" />

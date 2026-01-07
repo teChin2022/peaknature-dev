@@ -4,6 +4,7 @@ import { Crown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { FeatureKey, DEFAULT_FEATURES, SubscriptionInfo } from '@/lib/subscription'
+import { useTranslations } from 'next-intl'
 
 interface FeatureGateProps {
   feature: FeatureKey
@@ -20,6 +21,8 @@ export function FeatureGate({
   children,
   showUpgrade = true 
 }: FeatureGateProps) {
+  const t = useTranslations('dashboard.subscription')
+
   // If no subscription info, allow access (fail open for better UX)
   if (!subscriptionInfo) {
     return <>{children}</>
@@ -44,14 +47,14 @@ export function FeatureGate({
           <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center mx-auto mb-4">
             <Lock className="h-6 w-6 text-indigo-600" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Pro Feature</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('proFeature')}</h3>
           <p className="text-sm text-gray-500 mb-4">
-            Upgrade to Pro to unlock this feature
+            {t('unlockFeature')}
           </p>
           <Link href={`/${slug}/dashboard/subscription`}>
             <Button className="bg-indigo-600 hover:bg-indigo-700">
               <Crown className="h-4 w-4 mr-2" />
-              Upgrade to Pro
+              {t('upgradeToPro')}
             </Button>
           </Link>
         </div>
@@ -76,6 +79,8 @@ export function FeatureLimitBanner({
   currentCount,
   slug,
 }: FeatureLimitBannerProps) {
+  const t = useTranslations('dashboard.subscription')
+
   if (!subscriptionInfo) return null
 
   const limit = subscriptionInfo.getFeatureLimit(feature)
@@ -85,6 +90,8 @@ export function FeatureLimitBanner({
   const isAtLimit = currentCount >= limit
 
   if (!isNearLimit) return null
+
+  const featureName = feature.replace('_', ' ')
 
   return (
     <div className={`p-4 rounded-lg mb-4 ${
@@ -96,14 +103,14 @@ export function FeatureLimitBanner({
         <div>
           <p className={`font-medium ${isAtLimit ? 'text-red-800' : 'text-amber-800'}`}>
             {isAtLimit 
-              ? `You've reached the limit of ${limit} ${feature.replace('_', ' ')}`
-              : `You're using ${currentCount} of ${limit} ${feature.replace('_', ' ')}`
+              ? t('limitReached', { limit, feature: featureName })
+              : t('limitWarning', { current: currentCount, limit, feature: featureName })
             }
           </p>
           <p className={`text-sm ${isAtLimit ? 'text-red-600' : 'text-amber-600'}`}>
             {isAtLimit 
-              ? 'Upgrade to Pro for unlimited access'
-              : 'Consider upgrading to Pro for unlimited access'
+              ? t('unlimitedAccess')
+              : t('considerUpgrading')
             }
           </p>
         </div>
@@ -116,7 +123,7 @@ export function FeatureLimitBanner({
             }
           >
             <Crown className="h-4 w-4 mr-2" />
-            Upgrade
+            {t('upgradeNow')}
           </Button>
         </Link>
       </div>
@@ -131,6 +138,8 @@ interface ExpiredBannerProps {
 }
 
 export function ExpiredBanner({ subscriptionInfo, slug, primaryColor }: ExpiredBannerProps) {
+  const t = useTranslations('dashboard.subscription')
+
   if (!subscriptionInfo || subscriptionInfo.status !== 'expired') return null
 
   return (
@@ -141,9 +150,9 @@ export function ExpiredBanner({ subscriptionInfo, slug, primaryColor }: ExpiredB
             <Lock className="h-5 w-5 text-red-600" />
           </div>
           <div>
-            <p className="font-medium text-red-800">Your trial has expired</p>
+            <p className="font-medium text-red-800">{t('trialExpired')}</p>
             <p className="text-sm text-red-600">
-              Some features are restricted. Upgrade to Pro to continue using all features.
+              {t('trialExpiredDesc')}
             </p>
           </div>
         </div>
@@ -153,7 +162,7 @@ export function ExpiredBanner({ subscriptionInfo, slug, primaryColor }: ExpiredB
             className="text-white"
           >
             <Crown className="h-4 w-4 mr-2" />
-            Upgrade Now
+            {t('upgradeNow')}
           </Button>
         </Link>
       </div>
@@ -168,6 +177,8 @@ interface TrialBannerProps {
 }
 
 export function TrialBanner({ subscriptionInfo, slug, primaryColor }: TrialBannerProps) {
+  const t = useTranslations('dashboard.subscription')
+
   if (!subscriptionInfo || subscriptionInfo.status !== 'trial') return null
   
   // Only show if less than 14 days remaining
@@ -190,10 +201,10 @@ export function TrialBanner({ subscriptionInfo, slug, primaryColor }: TrialBanne
           </div>
           <div>
             <p className={`font-medium ${isUrgent ? 'text-amber-800' : 'text-blue-800'}`}>
-              {subscriptionInfo.daysRemaining} days left in your trial
+              {t('trialDaysLeft', { days: subscriptionInfo.daysRemaining })}
             </p>
             <p className={`text-sm ${isUrgent ? 'text-amber-600' : 'text-blue-600'}`}>
-              Upgrade to Pro to keep all features after your trial ends
+              {t('keepFeatures')}
             </p>
           </div>
         </div>
@@ -202,7 +213,7 @@ export function TrialBanner({ subscriptionInfo, slug, primaryColor }: TrialBanne
             style={{ backgroundColor: primaryColor }}
             className="text-white"
           >
-            Upgrade Now
+            {t('upgradeNow')}
           </Button>
         </Link>
       </div>

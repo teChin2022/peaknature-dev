@@ -170,10 +170,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <span>
-              <strong>{locale === 'th' ? 'ไม่สามารถเข้าถึงได้' : 'Property Unavailable'}:</strong>{' '}
-              {locale === 'th' 
-                ? 'ที่พักที่คุณพยายามเข้าถึงไม่พร้อมให้บริการในขณะนี้ กรุณาติดต่อเจ้าของที่พักหากต้องการความช่วยเหลือ'
-                : 'The property you tried to access is currently unavailable. Please contact the property owner for assistance.'}
+              <strong>{messages.errors.propertyUnavailable}:</strong>{' '}
+              {messages.errors.propertyUnavailableDesc}
             </span>
           </div>
         </div>

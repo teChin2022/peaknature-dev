@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge'
 import { Room, Tenant, TenantSettings, TenantAmenity, CurrencyCode } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
 import { useTranslations } from 'next-intl'
-import { useLanguage } from '@/components/providers/language-provider'
 
 // Icon mapping for amenities
 const amenityIcons: Record<string, React.ReactNode> = {
@@ -57,12 +56,9 @@ interface RoomCardProps {
 }
 
 function RoomCard({ room, tenantSlug, primaryColor, currency }: RoomCardProps) {
-  const { locale } = useLanguage()
+  const t = useTranslations('landing')
+  const tRoom = useTranslations('room')
   const displayImage = room.images?.[0] || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80'
-  
-  const defaultDescription = locale === 'th'
-    ? 'ห้องพักสะดวกสบายพร้อมสิ่งอำนวยความสะดวกครบครัน'
-    : 'A comfortable room with all the amenities you need for a perfect stay.'
   
   return (
     <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300">
@@ -78,23 +74,23 @@ function RoomCard({ room, tenantSlug, primaryColor, currency }: RoomCardProps) {
           className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white border-0 text-xs sm:text-sm"
           style={{ backgroundColor: primaryColor }}
         >
-          {locale === 'th' ? 'เริ่มต้น' : 'From'} {formatPrice(room.base_price, currency)}/{locale === 'th' ? 'คืน' : 'night'}
+          {t('from')} {formatPrice(room.base_price, currency)}/{tRoom('night')}
         </Badge>
       </div>
       <CardContent className="p-4 sm:p-5 md:p-6">
         <h3 className="text-lg sm:text-xl font-semibold text-stone-900 mb-1.5 sm:mb-2">{room.name}</h3>
         <p className="text-stone-600 text-xs sm:text-sm line-clamp-2 mb-3 sm:mb-4">
-          {room.description || defaultDescription}
+          {room.description || tRoom('noDescription')}
         </p>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
           <div className="flex items-center gap-3 sm:gap-4 text-stone-500 text-xs sm:text-sm">
             <span className="flex items-center gap-1">
               <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              {room.max_guests} {locale === 'th' ? 'คน' : 'guests'}
+              {room.max_guests} {tRoom('guests')}
             </span>
             <span className="flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              {locale === 'th' ? `ขั้นต่ำ ${room.min_nights} คืน` : `Min ${room.min_nights} night${room.min_nights > 1 ? 's' : ''}`}
+              {room.min_nights > 1 ? t('minNightsStay', { nights: room.min_nights }) : t('minNightStay', { nights: room.min_nights })}
             </span>
           </div>
           <Link href={`/${tenantSlug}/rooms/${room.id}`} className="self-end sm:self-auto">
@@ -104,7 +100,7 @@ function RoomCard({ room, tenantSlug, primaryColor, currency }: RoomCardProps) {
               className="gap-1 font-medium h-8 sm:h-9 text-xs sm:text-sm"
               style={{ color: primaryColor }}
             >
-              {locale === 'th' ? 'ดู' : 'View'}
+              {t('view')}
               <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           </Link>
@@ -142,8 +138,7 @@ export function LandingPageClient({
 }: LandingPageClientProps) {
   const t = useTranslations('landing')
   const tHero = useTranslations('hero')
-  const tNav = useTranslations('nav')
-  const { locale } = useLanguage()
+  const tRoom = useTranslations('room')
 
   return (
     <div className="flex flex-col">
@@ -174,7 +169,7 @@ export function LandingPageClient({
                 {settings.hero.tagline}
               </div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight text-stone-900 mb-4 sm:mb-6">
-                {locale === 'th' ? 'ยินดีต้อนรับสู่' : 'Welcome to'}{' '}
+                {t('welcomeTo')}{' '}
                 <span style={{ color: tenant.primary_color }}>
                   {tenant.name}
                 </span>
@@ -196,7 +191,7 @@ export function LandingPageClient({
                 <Link href={`/${tenant.slug}#location`} className="w-full sm:w-auto">
                   <Button variant="outline" size="lg" className="w-full sm:w-auto h-12 sm:h-14 text-base sm:text-lg px-6 sm:px-8">
                     <MapPin className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    {locale === 'th' ? 'ดูเส้นทาง' : 'Get Directions'}
+                    {t('getDirections')}
                   </Button>
                 </Link>
               </div>
@@ -211,9 +206,7 @@ export function LandingPageClient({
                         {realStats.averageRating}
                       </div>
                       <div className="text-xs sm:text-sm text-stone-500">
-                        {locale === 'th' 
-                          ? `คะแนน (${realStats.totalReviews} รีวิว)`
-                          : `Rating (${realStats.totalReviews} reviews)`}
+                        {t('ratingReviews', { count: realStats.totalReviews })}
                       </div>
                     </div>
                   ) : (
@@ -222,7 +215,7 @@ export function LandingPageClient({
                         {realStats.roomCount > 0 ? realStats.roomCount : rooms.length}
                       </div>
                       <div className="text-xs sm:text-sm text-stone-500">
-                        {locale === 'th' ? 'ห้องพักที่ว่าง' : 'Available Rooms'}
+                        {t('availableRooms')}
                       </div>
                     </div>
                   )}
@@ -234,16 +227,16 @@ export function LandingPageClient({
                         {realStats.guestCount}+
                       </div>
                       <div className="text-xs sm:text-sm text-stone-500">
-                        {locale === 'th' ? 'แขกที่พึงพอใจ' : 'Happy Guests'}
+                        {t('happyGuests')}
                       </div>
                     </div>
                   ) : (
                     <div>
                       <div className="text-xl sm:text-2xl md:text-3xl font-bold text-stone-900">
-                        {settings.stats.custom_stat_value || (locale === 'th' ? 'อบอุ่น' : 'Cozy')}
+                        {settings.stats.custom_stat_value || t('cozy')}
                       </div>
                       <div className="text-xs sm:text-sm text-stone-500">
-                        {settings.stats.custom_stat_label || (locale === 'th' ? 'บรรยากาศ' : 'Atmosphere')}
+                        {settings.stats.custom_stat_label || t('atmosphere')}
                       </div>
                     </div>
                   )}
@@ -254,7 +247,7 @@ export function LandingPageClient({
                       {realStats.roomCount > 0 ? realStats.roomCount : rooms.length}
                     </div>
                     <div className="text-xs sm:text-sm text-stone-500">
-                      {locale === 'th' ? 'ห้องพัก' : 'Rooms'}
+                      {t('rooms')}
                     </div>
                   </div>
                 </div>
@@ -364,10 +357,7 @@ export function LandingPageClient({
                 {t('featuredRooms')}
               </h2>
               <p className="text-sm sm:text-base md:text-lg text-stone-600 max-w-2xl mx-auto px-4 sm:px-0">
-                {locale === 'th' 
-                  ? 'ห้องพักที่ออกแบบมาอย่างพิถีพิถันเพื่อความสะดวกสบาย ค้นหาพื้นที่ที่เหมาะกับการพักผ่อนของคุณ'
-                  : 'Each room is thoughtfully designed to provide comfort and character. Find your perfect space for relaxation.'
-                }
+                {t('featuredRoomsDesc')}
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
@@ -388,7 +378,7 @@ export function LandingPageClient({
                   size="lg"
                   className="gap-2 h-11 sm:h-12 text-sm sm:text-base"
                 >
-                  {locale === 'th' ? 'ดูห้องพักทั้งหมด' : 'View All Rooms'}
+                  {t('viewAllRooms')}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -406,10 +396,7 @@ export function LandingPageClient({
                 {t('whatWeOffer')}
               </h2>
               <p className="text-sm sm:text-base md:text-lg text-stone-600 max-w-2xl mx-auto px-4 sm:px-0">
-                {locale === 'th' 
-                  ? 'สิ่งอำนวยความสะดวกที่ออกแบบมาเพื่อการพักผ่อนที่สะดวกสบายและน่าจดจำ'
-                  : 'Enjoy a range of amenities designed to make your stay comfortable and memorable.'
-                }
+                {t('whatWeOfferDesc')}
               </p>
             </div>
             <div className={`grid gap-3 sm:gap-4 md:gap-6 ${
@@ -450,12 +437,7 @@ export function LandingPageClient({
                 {t('findUs')}
               </h2>
               <p className="text-sm sm:text-base md:text-lg text-stone-600 mb-6 sm:mb-8 leading-relaxed">
-                {settings.contact.directions || 
-                  (locale === 'th' 
-                    ? 'ตั้งอยู่ในย่านที่สงบพร้อมการเข้าถึงสถานที่ท่องเที่ยว ร้านอาหาร และการคมนาคมได้สะดวก'
-                    : 'Located in a peaceful neighborhood with easy access to local attractions, restaurants, and transportation.'
-                  )
-                }
+                {settings.contact.directions || t('locationDefault')}
               </p>
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-start gap-3 sm:gap-4">
@@ -470,7 +452,7 @@ export function LandingPageClient({
                   </div>
                   <div>
                     <h4 className="text-sm sm:text-base font-semibold text-stone-900">
-                      {locale === 'th' ? 'ที่อยู่' : 'Address'}
+                      {t('address')}
                     </h4>
                     <p className="text-sm sm:text-base text-stone-600">{fullAddress}</p>
                   </div>
@@ -488,10 +470,10 @@ export function LandingPageClient({
                   </div>
                   <div>
                     <h4 className="text-sm sm:text-base font-semibold text-stone-900">
-                      {locale === 'th' ? 'การเดินทาง' : 'Getting Here'}
+                      {t('gettingHere')}
                     </h4>
                     <p className="text-sm sm:text-base text-stone-600">
-                      {settings.contact.directions || (locale === 'th' ? '10 นาทีจากสนามบิน, มีที่จอดรถฟรี' : '10 min from airport, free parking available')}
+                      {settings.contact.directions || t('gettingHereDefault')}
                     </p>
                   </div>
                 </div>
@@ -505,7 +487,7 @@ export function LandingPageClient({
                     style={{ backgroundColor: tenant.primary_color }}
                   >
                     <ExternalLink className="h-4 w-4 sm:h-5 sm:w-5" />
-                    {locale === 'th' ? 'เปิดในแผนที่' : 'Open in Maps'}
+                    {t('openInMaps')}
                   </Button>
                 </a>
               ) : (
@@ -516,7 +498,7 @@ export function LandingPageClient({
                   disabled
                 >
                   <MapPin className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                  {locale === 'th' ? 'เปิดในแผนที่' : 'Open in Maps'}
+                  {t('openInMaps')}
                 </Button>
               )}
             </div>
@@ -531,14 +513,14 @@ export function LandingPageClient({
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title={locale === 'th' ? 'แผนที่ตั้ง' : 'Location Map'}
+                    title={t('locationMap')}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-stone-100 to-stone-200">
                     <div className="text-center">
                       <MapPin className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 mx-auto mb-3 sm:mb-4 text-stone-400" />
                       <p className="text-sm sm:text-base text-stone-500">
-                        {locale === 'th' ? 'แผนที่' : 'Map'}
+                        {t('map')}
                       </p>
                     </div>
                   </div>
@@ -553,7 +535,7 @@ export function LandingPageClient({
                   className="absolute bottom-4 right-4 inline-flex items-center gap-2 px-4 py-2 bg-white/95 backdrop-blur-sm rounded-lg shadow-lg text-sm font-medium text-stone-700 hover:bg-white transition-colors cursor-pointer"
                 >
                   <Navigation className="h-4 w-4" />
-                  {locale === 'th' ? 'เปิดใน Google Maps' : 'Open in Google Maps'}
+                  {t('openInGoogleMaps')}
                 </a>
               )}
             </div>
@@ -575,13 +557,10 @@ export function LandingPageClient({
         />
         <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-6">
-            {locale === 'th' ? 'พร้อมสำหรับการพักผ่อนที่สมบูรณ์แบบ?' : 'Ready for Your Perfect Stay?'}
+            {t('readyForStay')}
           </h2>
           <p className="text-base sm:text-lg md:text-xl text-white/90 mb-8 sm:mb-10 max-w-2xl mx-auto px-2">
-            {locale === 'th' 
-              ? 'จองห้องพักของคุณวันนี้และสัมผัสความอบอุ่นของการต้อนรับอย่างจริงใจ เรารอต้อนรับคุณอยู่'
-              : "Book your room today and experience the warmth of genuine hospitality. We can't wait to welcome you."
-            }
+            {t('readyForStayDesc')}
           </p>
           <Link href={`/${tenant.slug}/rooms`}>
             <Button 
@@ -589,7 +568,7 @@ export function LandingPageClient({
               className="bg-white hover:bg-stone-100 text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-10"
               style={{ color: tenant.primary_color }}
             >
-              {locale === 'th' ? 'จองเลย' : 'Book Now'}
+              {t('bookNow')}
               <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </Link>

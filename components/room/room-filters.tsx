@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useTranslations } from 'next-intl'
-import { useLanguage } from '@/components/providers/language-provider'
 
 interface RoomFiltersProps {
   initialGuests?: string
@@ -36,7 +35,6 @@ export function RoomFilters({
   const [isLoading, setIsLoading] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const t = useTranslations('room')
-  const { locale } = useLanguage()
   
   // Use 'any' as default to avoid hydration issues with empty string
   const [guests, setGuests] = useState(initialGuests || 'any')
@@ -125,10 +123,10 @@ export function RoomFilters({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="any">{t('anyGuests')}</SelectItem>
-              <SelectItem value="1">{locale === 'th' ? '1 คน' : '1 Guest'}</SelectItem>
-              <SelectItem value="2">{locale === 'th' ? '2 คน' : '2 Guests'}</SelectItem>
-              <SelectItem value="3">{locale === 'th' ? '3 คน' : '3 Guests'}</SelectItem>
-              <SelectItem value="4">{locale === 'th' ? '4+ คน' : '4+ Guests'}</SelectItem>
+              <SelectItem value="1">{t('oneGuest')}</SelectItem>
+              <SelectItem value="2">{t('twoGuests')}</SelectItem>
+              <SelectItem value="3">{t('threeGuests')}</SelectItem>
+              <SelectItem value="4">{t('fourPlusGuests')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -136,13 +134,13 @@ export function RoomFilters({
         {/* Price Range */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-stone-700">
-            {locale === 'th' ? 'ช่วงราคา' : 'Price Range'}
+            {t('priceRange')}
           </Label>
           <div className="flex items-center gap-3">
             <Input
               type="number"
               name="minPrice"
-              placeholder={locale === 'th' ? 'ต่ำสุด' : 'Min'}
+              placeholder={t('min')}
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
               className="flex-1"
@@ -151,7 +149,7 @@ export function RoomFilters({
             <Input
               type="number"
               name="maxPrice"
-              placeholder={locale === 'th' ? 'สูงสุด' : 'Max'}
+              placeholder={t('max')}
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
               className="flex-1"
@@ -168,10 +166,10 @@ export function RoomFilters({
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {locale === 'th' ? 'กำลังใช้...' : 'Applying...'}
+              {t('applying')}
             </>
           ) : (
-            locale === 'th' ? 'ใช้ตัวกรอง' : 'Apply Filters'
+            t('applyFilters')
           )}
         </Button>
       </form>

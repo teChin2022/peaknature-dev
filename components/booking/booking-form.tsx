@@ -22,7 +22,6 @@ import { Room, Tenant, CurrencyCode } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
 import type { DateRange } from 'react-day-picker'
 import { useTranslations } from 'next-intl'
-import { useLanguage } from '@/components/providers/language-provider'
 
 interface BookingFormProps {
   room: Room
@@ -48,7 +47,6 @@ export function BookingForm({
   const router = useRouter()
   const t = useTranslations('booking')
   const tRoom = useTranslations('room')
-  const { locale } = useLanguage()
   
   // Initialize with values from query params (for editing)
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -213,13 +211,13 @@ export function BookingForm({
               <div className="border-r border-stone-200 pr-2">
                 <div className="text-xs font-medium text-stone-500 uppercase">{t('checkIn')}</div>
                 <div className="text-sm text-stone-900">
-                  {dateRange?.from ? format(dateRange.from, 'MMM d, yyyy') : (locale === 'th' ? 'เลือกวัน' : 'Select date')}
+                  {dateRange?.from ? format(dateRange.from, 'MMM d, yyyy') : tRoom('selectDate')}
                 </div>
               </div>
               <div className="pl-2">
                 <div className="text-xs font-medium text-stone-500 uppercase">{t('checkOut')}</div>
                 <div className="text-sm text-stone-900">
-                  {dateRange?.to ? format(dateRange.to, 'MMM d, yyyy') : (locale === 'th' ? 'เลือกวัน' : 'Select date')}
+                  {dateRange?.to ? format(dateRange.to, 'MMM d, yyyy') : tRoom('selectDate')}
                 </div>
               </div>
             </div>
@@ -255,7 +253,7 @@ export function BookingForm({
       <div className="flex items-center justify-between p-3 border border-stone-200 rounded-lg">
         <div>
           <div className="text-xs font-medium text-stone-500 uppercase">{t('guests')}</div>
-          <div className="text-sm text-stone-900">{guests} {locale === 'th' ? 'คน' : (guests > 1 ? 'guests' : 'guest')}</div>
+          <div className="text-sm text-stone-900">{guests} {guests > 1 ? tRoom('guests') : tRoom('guest')}</div>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -289,15 +287,12 @@ export function BookingForm({
         onClick={handleBooking}
         disabled={!canBook}
       >
-        {canBook ? (locale === 'th' ? 'จองห้องพัก' : 'Reserve') : tRoom('selectDates')}
+        {canBook ? tRoom('reserve') : tRoom('selectDates')}
       </Button>
 
       {numberOfNights > 0 && numberOfNights < room.min_nights && (
         <p className="text-sm text-amber-600 text-center">
-          {locale === 'th' 
-            ? `เข้าพักขั้นต่ำ ${room.min_nights} คืน`
-            : `Minimum stay is ${room.min_nights} night${room.min_nights > 1 ? 's' : ''}`
-          }
+          {tRoom('minimumStay', { nights: room.min_nights, nightsWord: room.min_nights > 1 ? tRoom('nights') : tRoom('night') })}
         </p>
       )}
 
@@ -305,13 +300,13 @@ export function BookingForm({
       {numberOfNights >= room.min_nights && (
         <>
           <p className="text-sm text-stone-500 text-center">
-            {locale === 'th' ? 'ยังไม่ถูกเรียกเก็บเงิน' : "You won't be charged yet"}
+            {tRoom('notChargedYet')}
           </p>
 
           <div className="space-y-3 pt-4">
             <div className="flex justify-between text-stone-600">
               <span className="underline decoration-dotted underline-offset-4">
-                {formatPrice(room.base_price, currency)} × {numberOfNights} {locale === 'th' ? 'คืน' : (numberOfNights > 1 ? 'nights' : 'night')}
+                {formatPrice(room.base_price, currency)} × {numberOfNights} {numberOfNights > 1 ? tRoom('nights') : tRoom('night')}
               </span>
               <span>{formatPrice(subtotal, currency)}</span>
             </div>

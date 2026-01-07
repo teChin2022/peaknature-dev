@@ -343,7 +343,7 @@ export function SubscriptionContent({
             </div>
             <div className="mb-6">
               <span className="text-4xl font-bold">{formatPrice(proPlanPrice, currency)}</span>
-              <span className="text-white/70">/month</span>
+              <span className="text-white/70">{t('proCard.perMonth')}</span>
             </div>
             <ul className="space-y-3 mb-6">
               <li className="flex items-center gap-2 text-sm">

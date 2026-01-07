@@ -62,6 +62,7 @@ function formatDateSafe(dateString: string, isMounted: boolean): string {
 
 export function GuestList({ guests: initialGuests, tenantId, primaryColor }: GuestListProps) {
   const t = useTranslations('dashboard')
+  const tCommon = useTranslations('common')
   const [guests, setGuests] = useState<GuestData[]>(initialGuests)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedGuest, setSelectedGuest] = useState<GuestProfile | null>(null)
@@ -154,10 +155,10 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
                   </div>
                   <div>
                     <CardTitle className="text-base">
-                      {profile.full_name || 'Guest'}
+                      {profile.full_name || t('guest')}
                     </CardTitle>
                     <Badge variant="secondary" className="text-xs mt-1">
-                      {bookingCount} booking{bookingCount !== 1 ? 's' : ''}
+                      {bookingCount} {bookingCount !== 1 ? t('guests.bookings') : t('guests.booking')}
                     </Badge>
                   </div>
                 </div>
@@ -173,7 +174,7 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
                       onClick={() => handleDeleteClick(profile)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Guest
+                      {t('guests.deleteGuest')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -208,8 +209,8 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
                 <Calendar className="h-4 w-4 flex-shrink-0" />
                 <span>
                   {lastBooking 
-                    ? `Last booked: ${formatDateSafe(lastBooking, mounted)}`
-                    : `Joined: ${formatDateSafe(profile.created_at, mounted)}`
+                    ? `${t('guests.lastBooked')}: ${formatDateSafe(lastBooking, mounted)}`
+                    : `${t('guests.joined')}: ${formatDateSafe(profile.created_at, mounted)}`
                   }
                 </span>
               </div>
@@ -224,20 +225,20 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
-              Delete Guest Account
+              {t('guests.deleteGuestTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{selectedGuest?.full_name || selectedGuest?.email}</strong>?
+              {t('guests.deleteGuestDesc')} <strong>{selectedGuest?.full_name || selectedGuest?.email}</strong>?
             </AlertDialogDescription>
           </AlertDialogHeader>
           
           <div className="space-y-4 py-2">
             <div className="text-sm text-gray-600">
-              <p className="mb-2">This action will permanently delete:</p>
+              <p className="mb-2">{t('guests.deleteWillRemove')}</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>Guest profile information</li>
-                <li>All booking history for this guest</li>
-                <li>Any reviews from this guest</li>
+                <li>{t('guests.deleteProfile')}</li>
+                <li>{t('guests.deleteBookings')}</li>
+                <li>{t('guests.deleteReviews')}</li>
               </ul>
             </div>
             
@@ -250,7 +251,7 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>
-              Cancel
+              {tCommon('cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -263,10 +264,10 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
               {isDeleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t('guests.deleting')}
                 </>
               ) : (
-                'Delete Guest'
+                t('guests.deleteGuest')
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

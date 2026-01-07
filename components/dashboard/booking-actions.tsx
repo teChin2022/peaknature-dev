@@ -22,6 +22,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { CurrencyCode } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
+import { useTranslations } from 'next-intl'
 
 interface BookingData {
   id: string
@@ -41,6 +42,8 @@ interface BookingActionsProps {
 export function BookingActions({ booking, tenantSlug, primaryColor, currency = 'USD' }: BookingActionsProps) {
   const router = useRouter()
   const supabase = createClient()
+  const t = useTranslations('dashboard.bookings')
+  const tCommon = useTranslations('common')
   const [isLoading, setIsLoading] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<'confirm' | 'cancel' | null>(null)
 
@@ -75,7 +78,7 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
               onClick={() => setConfirmDialog('confirm')}
             >
               <Check className="h-4 w-4" />
-              Confirm
+              {t('confirmBooking')}
             </Button>
             <Button
               size="sm"
@@ -84,7 +87,7 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
               onClick={() => setConfirmDialog('cancel')}
             >
               <X className="h-4 w-4" />
-              Decline
+              {t('decline')}
             </Button>
           </>
         )}
@@ -101,7 +104,7 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
               className="flex items-center gap-2"
             >
               <Eye className="h-4 w-4" />
-              View Details
+              {t('viewDetails')}
             </DropdownMenuItem>
             {booking.status === 'confirmed' && (
               <>
@@ -111,7 +114,7 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
                   className="flex items-center gap-2 text-red-600"
                 >
                   <X className="h-4 w-4" />
-                  Cancel Booking
+                  {t('cancelBooking')}
                 </DropdownMenuItem>
               </>
             )}
@@ -123,30 +126,30 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
       <Dialog open={confirmDialog === 'confirm'} onOpenChange={() => setConfirmDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Booking</DialogTitle>
+            <DialogTitle>{t('confirmBookingTitle')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to confirm this booking? The guest will be notified via email.
+              {t('confirmBookingDesc')}
             </DialogDescription>
           </DialogHeader>
           <div className="bg-stone-50 rounded-lg p-4 my-4">
             <div className="text-sm space-y-2">
               <div className="flex justify-between">
-                <span className="text-stone-500">Guest</span>
+                <span className="text-stone-500">{t('guest')}</span>
                 <span className="font-medium">{booking.user?.full_name || booking.user?.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-stone-500">Room</span>
+                <span className="text-stone-500">{t('room')}</span>
                 <span className="font-medium">{booking.room?.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-stone-500">Total</span>
+                <span className="text-stone-500">{t('total')}</span>
                 <span className="font-medium">{formatPrice(booking.total_price, currency)}</span>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDialog(null)}>
-              Cancel
+              {tCommon('cancel')}
             </Button>
             <Button
               className="text-white"
@@ -157,10 +160,10 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Confirming...
+                  {t('confirming')}
                 </>
               ) : (
-                'Confirm Booking'
+                t('confirmBooking')
               )}
             </Button>
           </DialogFooter>
@@ -171,31 +174,30 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
       <Dialog open={confirmDialog === 'cancel'} onOpenChange={() => setConfirmDialog(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancel Booking</DialogTitle>
+            <DialogTitle>{t('cancelBookingTitle')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to cancel this booking? This action cannot be undone. 
-              The guest will be notified via email.
+              {t('cancelBookingDesc')}
             </DialogDescription>
           </DialogHeader>
           <div className="bg-red-50 rounded-lg p-4 my-4">
             <div className="text-sm space-y-2">
               <div className="flex justify-between">
-                <span className="text-stone-500">Guest</span>
+                <span className="text-stone-500">{t('guest')}</span>
                 <span className="font-medium">{booking.user?.full_name || booking.user?.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-stone-500">Room</span>
+                <span className="text-stone-500">{t('room')}</span>
                 <span className="font-medium">{booking.room?.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-stone-500">Total</span>
+                <span className="text-stone-500">{t('total')}</span>
                 <span className="font-medium">{formatPrice(booking.total_price, currency)}</span>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmDialog(null)}>
-              Keep Booking
+              {t('keepBooking')}
             </Button>
             <Button
               variant="destructive"
@@ -205,10 +207,10 @@ export function BookingActions({ booking, tenantSlug, primaryColor, currency = '
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Cancelling...
+                  {t('cancelling')}
                 </>
               ) : (
-                'Cancel Booking'
+                t('cancelBooking')
               )}
             </Button>
           </DialogFooter>
