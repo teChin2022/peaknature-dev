@@ -24,19 +24,28 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient()
 
     // Get token data (this works for anon due to RLS policy)
+    // Use maybeSingle() instead of single() to avoid error when no rows found
     const { data: tokenData, error: tokenError } = await supabase
       .from('upload_tokens')
       .select('*')
       .eq('token', token)
       .eq('is_uploaded', false)
       .gt('expires_at', new Date().toISOString())
-      .single()
+      .maybeSingle()
 
-    if (tokenError || !tokenData) {
+    if (tokenError) {
       console.error('Token error:', tokenError)
       return NextResponse.json({
         success: false,
-        error: tokenError ? `Token error: ${tokenError.message}` : 'Invalid or expired token',
+        error: 'Failed to validate token. Please try again.',
+      })
+    }
+
+    if (!tokenData) {
+      // Token not found, expired, or already used
+      return NextResponse.json({
+        success: false,
+        error: 'This upload link has expired or already been used. Please generate a new QR code.',
       })
     }
 
@@ -89,7 +98,9 @@ export async function POST(request: NextRequest) {
       .getPublicUrl(uploadData.path)
 
     // Update token with slip URL and content hash
-    const { error: updateError } = await supabase
+    // Try with content hash first, fall back without if column doesn't exist
+    let updateError = null
+    const { error: updateErr1 } = await supabase
       .from('upload_tokens')
       .update({
         slip_url: publicUrl,
@@ -97,6 +108,23 @@ export async function POST(request: NextRequest) {
         is_uploaded: true,
       })
       .eq('token', token)
+    
+    if (updateErr1) {
+      // If error might be due to missing column, try without slip_content_hash
+      if (updateErr1.message?.includes('slip_content_hash') || updateErr1.code === '42703') {
+        console.log('[mobile-upload] slip_content_hash column not found, updating without it')
+        const { error: updateErr2 } = await supabase
+          .from('upload_tokens')
+          .update({
+            slip_url: publicUrl,
+            is_uploaded: true,
+          })
+          .eq('token', token)
+        updateError = updateErr2
+      } else {
+        updateError = updateErr1
+      }
+    }
 
     if (updateError) {
       console.error('Update token error:', updateError)

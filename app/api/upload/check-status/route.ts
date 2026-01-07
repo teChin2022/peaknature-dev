@@ -15,14 +15,24 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Get token status
+    // Get token status - use maybeSingle() to avoid error when no rows found
+    // Note: slip_content_hash may not exist if migration hasn't run yet
     const { data: tokenData, error: tokenError } = await supabase
       .from('upload_tokens')
-      .select('is_uploaded, slip_url, slip_content_hash, expires_at')
+      .select('*')
       .eq('token', token)
-      .single()
+      .maybeSingle()
 
-    if (tokenError || !tokenData) {
+    if (tokenError) {
+      console.error('Check status error:', tokenError)
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to check token status',
+        expired: false,
+      })
+    }
+
+    if (!tokenData) {
       return NextResponse.json({
         success: false,
         error: 'Token not found or expired',
@@ -43,7 +53,7 @@ export async function GET(request: NextRequest) {
       success: true,
       isUploaded: tokenData.is_uploaded,
       slipUrl: tokenData.slip_url,
-      slipContentHash: tokenData.slip_content_hash, // Include content hash for duplicate detection
+      slipContentHash: tokenData.slip_content_hash || null, // Include content hash for duplicate detection (may be null if column doesn't exist yet)
       expired: false,
     })
 
