@@ -18,7 +18,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Label } from '@/components/ui/label'
-import { useTranslations } from 'next-intl'
 
 interface Province {
   name_th: string
@@ -46,13 +45,42 @@ interface LocationData {
   postal_code: string
 }
 
-interface LocationSelectorProps {
-  location: LocationData
-  onLocationChange: (location: LocationData) => void
+interface LocationSelectorTranslations {
+  province: string
+  district: string
+  subDistrict: string
+  selectProvince: string
+  selectDistrict: string
+  selectSubDistrict: string
+  selectProvinceFirst: string
+  selectDistrictFirst: string
+  searchPlaceholder: string
+  noResults: string
+  fullAddress?: string
 }
 
-export function LocationSelector({ location, onLocationChange }: LocationSelectorProps) {
-  const t = useTranslations('settings')
+const defaultTranslations: LocationSelectorTranslations = {
+  province: 'Province',
+  district: 'District',
+  subDistrict: 'Sub-District',
+  selectProvince: 'Select province',
+  selectDistrict: 'Select district',
+  selectSubDistrict: 'Select sub-district',
+  selectProvinceFirst: 'Select province first',
+  selectDistrictFirst: 'Select district first',
+  searchPlaceholder: 'Search...',
+  noResults: 'No location found',
+  fullAddress: 'Full Address',
+}
+
+interface LocationSelectorProps {
+  location: LocationData
+  onChange: (location: LocationData) => void
+  translations?: Partial<LocationSelectorTranslations>
+}
+
+export function LocationSelector({ location, onChange, translations }: LocationSelectorProps) {
+  const t = { ...defaultTranslations, ...translations }
   
   const [provinceOpen, setProvinceOpen] = React.useState(false)
   const [districtOpen, setDistrictOpen] = React.useState(false)
@@ -141,7 +169,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
   const selectedSubDistrict = subDistricts.find(s => s.name_th === location.sub_district)
 
   const handleProvinceChange = (province: Province) => {
-    onLocationChange({
+    onChange({
       province: province.name_th,
       province_en: province.name_en,
       district: '',
@@ -154,7 +182,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
   }
 
   const handleDistrictChange = (district: District) => {
-    onLocationChange({
+    onChange({
       ...location,
       district: district.name_th,
       district_en: district.name_en,
@@ -166,7 +194,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
   }
 
   const handleSubDistrictChange = (subDistrict: SubDistrict) => {
-    onLocationChange({
+    onChange({
       ...location,
       sub_district: subDistrict.name_th,
       sub_district_en: subDistrict.name_en,
@@ -179,7 +207,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
     <div className="space-y-4">
       {/* Province */}
       <div className="space-y-2">
-        <Label>{t('contact.province')}</Label>
+        <Label>{t.province}</Label>
         <Popover open={provinceOpen} onOpenChange={setProvinceOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button
@@ -201,16 +229,16 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
                   {selectedProvince.name_th} ({selectedProvince.name_en})
                 </span>
               ) : (
-                <span className="text-gray-500">{t('contact.selectProvince')}</span>
+                <span className="text-gray-500">{t.selectProvince}</span>
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[350px] p-0 z-[100]" align="start">
             <Command>
-              <CommandInput placeholder={t('contact.searchLocation')} />
+              <CommandInput placeholder={t.searchPlaceholder} />
               <CommandList>
-                <CommandEmpty>{t('contact.noLocationResults')}</CommandEmpty>
+                <CommandEmpty>{t.noResults}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
                   {provinces.map((p) => (
                     <CommandItem
@@ -238,7 +266,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
 
       {/* District */}
       <div className="space-y-2">
-        <Label>{t('contact.district')}</Label>
+        <Label>{t.district}</Label>
         <Popover open={districtOpen} onOpenChange={setDistrictOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button
@@ -261,7 +289,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
                 </span>
               ) : (
                 <span className="text-gray-500">
-                  {location.province ? t('contact.selectDistrict') : t('contact.selectProvinceFirst')}
+                  {location.province ? t.selectDistrict : t.selectProvinceFirst}
                 </span>
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -269,9 +297,9 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
           </PopoverTrigger>
           <PopoverContent className="w-[350px] p-0 z-[100]" align="start">
             <Command>
-              <CommandInput placeholder={t('contact.searchLocation')} />
+              <CommandInput placeholder={t.searchPlaceholder} />
               <CommandList>
-                <CommandEmpty>{t('contact.noLocationResults')}</CommandEmpty>
+                <CommandEmpty>{t.noResults}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
                   {districts.map((d) => (
                     <CommandItem
@@ -299,7 +327,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
 
       {/* Sub-District */}
       <div className="space-y-2">
-        <Label>{t('contact.subDistrict')}</Label>
+        <Label>{t.subDistrict}</Label>
         <Popover open={subDistrictOpen} onOpenChange={setSubDistrictOpen} modal={true}>
           <PopoverTrigger asChild>
             <Button
@@ -322,7 +350,7 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
                 </span>
               ) : (
                 <span className="text-gray-500">
-                  {location.district ? t('contact.selectSubDistrict') : t('contact.selectDistrictFirst')}
+                  {location.district ? t.selectSubDistrict : t.selectDistrictFirst}
                 </span>
               )}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -330,9 +358,9 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
           </PopoverTrigger>
           <PopoverContent className="w-[350px] p-0 z-[100]" align="start">
             <Command>
-              <CommandInput placeholder={t('contact.searchLocation')} />
+              <CommandInput placeholder={t.searchPlaceholder} />
               <CommandList>
-                <CommandEmpty>{t('contact.noLocationResults')}</CommandEmpty>
+                <CommandEmpty>{t.noResults}</CommandEmpty>
                 <CommandGroup className="max-h-[300px] overflow-y-auto">
                   {subDistricts.map((s) => (
                     <CommandItem
@@ -358,29 +386,6 @@ export function LocationSelector({ location, onLocationChange }: LocationSelecto
           </PopoverContent>
         </Popover>
       </div>
-
-      {/* Postal Code (auto-filled, read-only) */}
-      {location.postal_code && (
-        <div className="space-y-2">
-          <Label>{t('contact.postalCode')}</Label>
-          <div className="h-10 px-3 py-2 bg-gray-50 border rounded-md text-gray-600">
-            {location.postal_code}
-          </div>
-        </div>
-      )}
-
-      {/* Full Address Preview */}
-      {location.province && (
-        <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-          <strong>{t('contact.fullAddressPreview')}:</strong>{' '}
-          {[
-            location.sub_district,
-            location.district,
-            location.province,
-            location.postal_code
-          ].filter(Boolean).join(', ')}
-        </div>
-      )}
     </div>
   )
 }

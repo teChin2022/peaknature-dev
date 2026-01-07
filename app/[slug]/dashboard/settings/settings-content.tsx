@@ -648,6 +648,7 @@ export function SettingsPageContent({ slug, tenant, initialSettings }: SettingsP
                     selectDistrictFirst: t('selectDistrictFirst'),
                     searchPlaceholder: t('searchLocation'),
                     noResults: t('noLocationResults'),
+                    fullAddress: t('fullAddress'),
                   }}
                 />
 

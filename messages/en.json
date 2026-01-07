@@ -123,6 +123,8 @@
     "selectProvinceFirst": "Select province first",
     "selectDistrictFirst": "Select district first",
     "selectSubDistrict": "Select sub-district",
+    "searchLocation": "Search...",
+    "noLocationResults": "No location found",
     "saveChanges": "Save Changes",
     "saving": "Saving...",
     "profileUpdated": "Profile updated successfully!",

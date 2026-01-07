@@ -369,6 +369,19 @@ export function GuestSettingsForm({ slug, tenant, profile, isEmailUser }: GuestS
                   sub_district: value 
                 })}
                 primaryColor={tenant.primary_color}
+                labels={{
+                  province: t('province'),
+                  district: t('district'),
+                  subDistrict: t('subDistrict'),
+                  selectProvince: t('selectProvince'),
+                  selectDistrict: t('selectDistrict'),
+                  selectSubDistrict: t('selectSubDistrict'),
+                  selectProvinceFirst: t('selectProvinceFirst'),
+                  selectDistrictFirst: t('selectDistrictFirst'),
+                  search: t('searchLocation'),
+                  noResults: t('noLocationResults'),
+                  optional: tCommon('optional'),
+                }}
               />
 
               {/* Error/Success Messages */}

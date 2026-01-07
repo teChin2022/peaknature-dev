@@ -123,6 +123,8 @@
     "selectProvinceFirst": "เลือกจังหวัดก่อน",
     "selectDistrictFirst": "เลือกอำเภอก่อน",
     "selectSubDistrict": "เลือกตำบล",
+    "searchLocation": "ค้นหา...",
+    "noLocationResults": "ไม่พบที่ตั้ง",
     "saveChanges": "บันทึกการเปลี่ยนแปลง",
     "saving": "กำลังบันทึก...",
     "profileUpdated": "อัปเดตโปรไฟล์สำเร็จ!",
