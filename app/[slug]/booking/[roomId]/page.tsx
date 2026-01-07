@@ -8,10 +8,11 @@ import { Separator } from '@/components/ui/separator'
 import { BookingConfirmForm } from '@/components/booking/booking-confirm-form'
 import { ReservationLockChecker } from '@/components/booking/reservation-lock-checker'
 import { PaymentSectionWrapper } from '@/components/booking/payment-section-wrapper'
-import { differenceInDays, format, parseISO } from 'date-fns'
+import { differenceInDays, parseISO } from 'date-fns'
 import { Tenant, Room, TenantSettings, defaultTenantSettings } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
 import { getLocaleFromCookies, getTranslations } from '@/lib/i18n-server'
+import { formatDate, formatDateRange } from '@/lib/date-utils'
 
 // Disable caching to always get fresh booking data
 export const dynamic = 'force-dynamic'
@@ -202,7 +203,7 @@ export default async function BookingPage({ params, searchParams }: BookingPageP
                     <div>
                       <div className="font-medium text-stone-900">{t.dates}</div>
                       <div className="text-stone-600">
-                        {format(checkInDate, 'MMM d')} – {format(checkOutDate, 'MMM d, yyyy')}
+                        {formatDateRange(checkInDate, checkOutDate, locale)}
                       </div>
                     </div>
                     <Link 
@@ -320,11 +321,11 @@ export default async function BookingPage({ params, searchParams }: BookingPageP
                   <div className="flex items-center gap-4 text-sm text-stone-500">
                     <span className="flex items-center gap-1.5">
                       <Users className="h-4 w-4" />
-                      {guestCount} guest{guestCount > 1 ? 's' : ''}
+                      {guestCount} {guestCount > 1 ? t.guests : t.guest}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Calendar className="h-4 w-4" />
-                      {numberOfNights} night{numberOfNights > 1 ? 's' : ''}
+                      {numberOfNights} {numberOfNights > 1 ? t.nights : t.night}
                     </span>
                   </div>
                 </div>

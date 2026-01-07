@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { format, parseISO, differenceInDays } from 'date-fns'
+import { parseISO, differenceInDays } from 'date-fns'
 import { Tenant, Booking, Room, Profile, TenantSettings, defaultTenantSettings } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
 import { getLocaleFromCookies, getTranslations } from '@/lib/i18n-server'
+import { formatDate } from '@/lib/date-utils'
 
 interface ConfirmationPageProps {
   params: Promise<{ slug: string; bookingId: string }>
@@ -158,7 +159,7 @@ export default async function BookingConfirmationPage({ params }: ConfirmationPa
                   <div>
                     <div className="text-sm text-stone-500 mb-1">{t.checkIn}</div>
                     <div className="font-semibold text-stone-900">
-                      {format(checkInDate, 'EEEE, MMMM d, yyyy')}
+                      {formatDate(checkInDate, 'EEEE, MMMM d, yyyy', locale)}
                     </div>
                     <div className="text-sm text-stone-600 flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -178,7 +179,7 @@ export default async function BookingConfirmationPage({ params }: ConfirmationPa
                   <div>
                     <div className="text-sm text-stone-500 mb-1">{t.checkOut}</div>
                     <div className="font-semibold text-stone-900">
-                      {format(checkOutDate, 'EEEE, MMMM d, yyyy')}
+                      {formatDate(checkOutDate, 'EEEE, MMMM d, yyyy', locale)}
                     </div>
                     <div className="text-sm text-stone-600 flex items-center gap-1">
                       <Clock className="h-3 w-3" />

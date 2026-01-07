@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { format, parseISO, differenceInDays } from 'date-fns'
+import { parseISO, differenceInDays } from 'date-fns'
+import { formatDateRange } from '@/lib/date-utils'
+import { useLocale } from 'next-intl'
+import { Locale } from '@/lib/i18n-config'
 import { 
   ArrowLeft, Clock, AlertCircle, CheckCircle2, Loader2, 
   Phone, MessageCircle, Calendar, Users, Timer,
@@ -32,6 +35,7 @@ export default function PaymentPage() {
   const supabase = createClient()
   const t = useTranslations('paymentPage')
   const tBooking = useTranslations('booking')
+  const locale = useLocale() as Locale
 
   const [tenant, setTenant] = useState<Tenant | null>(null)
   const [booking, setBooking] = useState<BookingWithRoom | null>(null)
@@ -560,17 +564,17 @@ export default function PaymentPage() {
                 <div className="flex items-center gap-4 mt-2 text-xs text-stone-500">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {format(checkInDate, 'MMM d')} - {format(checkOutDate, 'MMM d, yyyy')}
+                    {formatDateRange(checkInDate, checkOutDate, locale)}
                   </span>
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
-                    {booking.guests} guest{booking.guests > 1 ? 's' : ''}
+                    {booking.guests} {booking.guests > 1 ? tBooking('guests') : tBooking('guest')}
                   </span>
                 </div>
               </div>
               <div className="text-right">
                 <Badge variant="outline" className="mb-2">
-                  {numberOfNights} night{numberOfNights > 1 ? 's' : ''}
+                  {numberOfNights} {numberOfNights > 1 ? tBooking('nights') : tBooking('night')}
                 </Badge>
                 <p className="font-semibold" style={{ color: tenant.primary_color }}>
                   {formatPrice(booking.total_price, currency)}
