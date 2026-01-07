@@ -8,6 +8,7 @@ import { PromptPayQRCode } from './promptpay-qr'
 import { Tenant, TenantSettings, defaultTenantSettings, CurrencyCode } from '@/types/database'
 import { formatPrice } from '@/lib/currency'
 import { QrCode, Upload, Car } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 interface PaymentSectionWrapperProps {
   tenant: Tenant
@@ -26,6 +27,7 @@ export function PaymentSectionWrapper({
   guests,
   basePrice,
 }: PaymentSectionWrapperProps) {
+  const t = useTranslations('booking')
   const settings: TenantSettings = {
     ...defaultTenantSettings,
     ...(tenant.settings as TenantSettings || {})
@@ -75,14 +77,14 @@ export function PaymentSectionWrapper({
           <CardContent className="py-4">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-stone-600">
-                <span>Room Total</span>
+                <span>{t('roomTotal')}</span>
                 <span>{formatPrice(basePrice, settings.currency as CurrencyCode)}</span>
               </div>
               {transportSelections.pickupRequested && (
                 <div className="flex justify-between text-amber-700">
                   <span className="flex items-center gap-1">
                     <Car className="h-3 w-3" />
-                    Pickup Service
+                    {t('pickupService')}
                   </span>
                   <span>+{formatPrice(transportSelections.pickupPrice, settings.currency as CurrencyCode)}</span>
                 </div>
@@ -91,13 +93,13 @@ export function PaymentSectionWrapper({
                 <div className="flex justify-between text-amber-700">
                   <span className="flex items-center gap-1">
                     <Car className="h-3 w-3" />
-                    Drop-off Service
+                    {t('dropoffService')}
                   </span>
                   <span>+{formatPrice(transportSelections.dropoffPrice, settings.currency as CurrencyCode)}</span>
                 </div>
               )}
               <div className="flex justify-between font-semibold text-stone-900 pt-2 border-t border-amber-200">
-                <span>New Total to Pay</span>
+                <span>{t('newTotalToPay')}</span>
                 <span style={{ color: tenant.primary_color }}>
                   {formatPrice(grandTotal, settings.currency as CurrencyCode)}
                 </span>
@@ -118,7 +120,7 @@ export function PaymentSectionWrapper({
               1
             </div>
             <QrCode className="h-5 w-5" style={{ color: tenant.primary_color }} />
-            Scan QR Code to Pay
+            {t('scanQR')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -143,7 +145,7 @@ export function PaymentSectionWrapper({
               2
             </div>
             <Upload className="h-5 w-5" style={{ color: tenant.primary_color }} />
-            Upload Payment Slip
+            {t('uploadPaymentSlip')}
           </CardTitle>
         </CardHeader>
         <CardContent>

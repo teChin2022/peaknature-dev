@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { StarRating } from './star-rating'
 import { createClient } from '@/lib/supabase/client'
+import { useTranslations } from 'next-intl'
 import type { ExistingReview } from './review-dialog'
 
 interface ReviewFormProps {
@@ -29,6 +30,7 @@ export function ReviewForm({
 }: ReviewFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const t = useTranslations('review')
   
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
@@ -39,7 +41,7 @@ export function ReviewForm({
     e.preventDefault()
     
     if (rating === 0) {
-      setError('Please select a rating')
+      setError(t('pleaseSelectRating'))
       return
     }
 
@@ -50,7 +52,7 @@ export function ReviewForm({
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
-        setError('Please login to submit a review')
+        setError(t('pleaseLoginToReview'))
         return
       }
 
@@ -62,7 +64,7 @@ export function ReviewForm({
         .single()
 
       if (existingCheck) {
-        setError('You have already reviewed this booking')
+        setError(t('alreadyReviewed'))
         return
       }
 
@@ -82,9 +84,9 @@ export function ReviewForm({
         console.error('Error submitting review:', insertError)
         // Check for RLS policy error
         if (insertError.code === '42501' || insertError.message?.includes('policy')) {
-          setError('Cannot submit review. Your booking must be completed or checked out first.')
+          setError(t('bookingMustBeCompleted'))
         } else {
-          setError('Failed to submit review. Please try again.')
+          setError(t('failedToSubmitReview'))
         }
         return
       }
@@ -96,7 +98,7 @@ export function ReviewForm({
         router.refresh()
       }
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError(t('failedToSubmitReview'))
     } finally {
       setIsSubmitting(false)
     }
@@ -106,17 +108,17 @@ export function ReviewForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="text-center pb-4 border-b border-stone-200">
         <h3 className="font-semibold text-stone-900 text-lg">
-          How was your stay?
+          {t('howWasYourStay')}
         </h3>
         <p className="text-sm text-stone-600 mt-1">
-          Rate your experience at {roomName}
+          {t('rateExperience', { roomName })}
         </p>
       </div>
 
       {/* Star Rating */}
       <div className="flex flex-col items-center gap-3">
         <Label className="text-sm font-medium text-stone-700">
-          Your Rating
+          {t('yourRating')}
         </Label>
         <StarRating
           rating={rating}
@@ -126,23 +128,23 @@ export function ReviewForm({
           primaryColor={primaryColor}
         />
         <p className="text-sm text-stone-500">
-          {rating === 0 && 'Tap a star to rate'}
-          {rating === 1 && 'Poor'}
-          {rating === 2 && 'Fair'}
-          {rating === 3 && 'Good'}
-          {rating === 4 && 'Very Good'}
-          {rating === 5 && 'Excellent'}
+          {rating === 0 && t('tapToRate')}
+          {rating === 1 && t('ratingPoor')}
+          {rating === 2 && t('ratingFair')}
+          {rating === 3 && t('ratingGood')}
+          {rating === 4 && t('ratingVeryGood')}
+          {rating === 5 && t('ratingExcellent')}
         </p>
       </div>
 
       {/* Comment */}
       <div className="space-y-2">
         <Label htmlFor="comment" className="text-sm font-medium text-stone-700">
-          Your Review (Optional)
+          {t('yourReviewOptional')}
         </Label>
         <Textarea
           id="comment"
-          placeholder="Share your experience with other guests..."
+          placeholder={t('shareExperience')}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={4}
@@ -150,7 +152,7 @@ export function ReviewForm({
           className="resize-none"
         />
         <p className="text-xs text-stone-500 text-right">
-          {comment.length}/500 characters
+          {comment.length}/500 {t('characters')}
         </p>
       </div>
 
@@ -169,7 +171,7 @@ export function ReviewForm({
             onClick={onCancel}
             disabled={isSubmitting}
           >
-            Cancel
+            {t('cancel')}
           </Button>
         )}
         <Button
@@ -181,12 +183,12 @@ export function ReviewForm({
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Submitting...
+              {t('submitting')}
             </>
           ) : (
             <>
               <Send className="mr-2 h-4 w-4" />
-              Submit Review
+              {t('submitReview')}
             </>
           )}
         </Button>

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { getAppBaseUrl } from '@/lib/utils'
+import { useTranslations } from 'next-intl'
 
 interface QRUploadModalProps {
   isOpen: boolean
@@ -45,6 +46,8 @@ export function QRUploadModal({
   const [isLoading, setIsLoading] = useState(false)
   const [isUploaded, setIsUploaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslations('qrUploadModal')
+  const tErrors = useTranslations('errors')
 
   // Generate upload URL - falls back to current domain if env var not set
   const baseUrl = getAppBaseUrl()
@@ -73,7 +76,7 @@ export function QRUploadModal({
       const result = await response.json()
 
       if (!result.success) {
-        setError(result.error || 'Failed to create upload link')
+        setError(result.error || tErrors('failedToCreateUploadLink'))
         return
       }
 
@@ -82,7 +85,7 @@ export function QRUploadModal({
 
     } catch (err) {
       console.error('Create token error:', err)
-      setError('An error occurred. Please try again.')
+      setError(tErrors('somethingWrong'))
     } finally {
       setIsLoading(false)
     }
@@ -98,7 +101,7 @@ export function QRUploadModal({
         const result = await response.json()
 
         if (result.expired) {
-          setError('QR code expired. Please generate a new one.')
+          setError(tErrors('qrExpired'))
           setToken(null)
           clearInterval(pollInterval)
           return
@@ -130,7 +133,7 @@ export function QRUploadModal({
       setTimeLeft(diff)
 
       if (diff === 0) {
-        setError('QR code expired. Please generate a new one.')
+        setError(tErrors('qrExpired'))
         setToken(null)
       }
     }
@@ -170,7 +173,7 @@ export function QRUploadModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Smartphone className="h-5 w-5" />
-            Upload from Phone
+            {t('title')}
           </DialogTitle>
         </DialogHeader>
 
@@ -179,7 +182,7 @@ export function QRUploadModal({
           {isLoading && (
             <div className="text-center py-8">
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-stone-400 mb-4" />
-              <p className="text-stone-600">Generating QR code...</p>
+              <p className="text-stone-600">{t('generatingQR')}</p>
             </div>
           )}
 
@@ -191,7 +194,7 @@ export function QRUploadModal({
               </div>
               <p className="text-stone-800 font-medium mb-4">{error}</p>
               <Button onClick={createToken} variant="outline">
-                Generate New QR Code
+                {t('generateNewQR')}
               </Button>
             </div>
           )}
@@ -205,8 +208,8 @@ export function QRUploadModal({
               >
                 <CheckCircle2 className="h-8 w-8" style={{ color: primaryColor }} />
               </div>
-              <p className="text-stone-800 font-medium mb-2">Upload Complete!</p>
-              <p className="text-stone-500 text-sm">Closing this window...</p>
+              <p className="text-stone-800 font-medium mb-2">{t('uploadComplete')}</p>
+              <p className="text-stone-500 text-sm">{t('closingWindow')}</p>
             </div>
           )}
 
@@ -226,25 +229,25 @@ export function QRUploadModal({
               <div className="flex items-center justify-center gap-2 text-stone-600">
                 <Clock className="h-4 w-4" />
                 <span className="text-sm">
-                  Expires in <span className="font-mono font-medium">{formatTime(timeLeft)}</span>
+                  {t('expiresIn')} <span className="font-mono font-medium">{formatTime(timeLeft)}</span>
                 </span>
               </div>
 
               {/* Instructions */}
               <div className="bg-stone-50 rounded-lg p-4 space-y-2">
-                <p className="font-medium text-stone-800 text-sm">Instructions:</p>
+                <p className="font-medium text-stone-800 text-sm">{t('instructions')}</p>
                 <ol className="text-sm text-stone-600 space-y-1 list-decimal list-inside">
-                  <li>Open camera app on your phone</li>
-                  <li>Point at the QR code above</li>
-                  <li>Tap the link to open upload page</li>
-                  <li>Select your payment slip image</li>
+                  <li>{t('step1')}</li>
+                  <li>{t('step2')}</li>
+                  <li>{t('step3')}</li>
+                  <li>{t('step4')}</li>
                 </ol>
               </div>
 
               {/* Waiting indicator */}
               <div className="flex items-center justify-center gap-2 text-stone-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Waiting for upload...</span>
+                <span className="text-sm">{t('waitingForUpload')}</span>
               </div>
             </div>
           )}

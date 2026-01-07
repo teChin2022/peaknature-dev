@@ -97,7 +97,7 @@ export function RegisterForm({ tenant, redirectTo }: RegisterFormProps) {
 
       // Check if user already exists (identities will be empty array)
       if (signUpData?.user?.identities?.length === 0) {
-        setError('An account with this email already exists. Please login instead.')
+        setError(tErrors('emailAlreadyExists'))
         return
       }
 

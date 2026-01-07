@@ -63,6 +63,7 @@ function formatDateSafe(dateString: string, isMounted: boolean): string {
 export function GuestList({ guests: initialGuests, tenantId, primaryColor }: GuestListProps) {
   const t = useTranslations('dashboard')
   const tCommon = useTranslations('common')
+  const tErrors = useTranslations('errors')
   const [guests, setGuests] = useState<GuestData[]>(initialGuests)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedGuest, setSelectedGuest] = useState<GuestProfile | null>(null)
@@ -100,14 +101,14 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
       // Handle rate limiting
       if (response.status === 429) {
         const retryAfter = response.headers.get('Retry-After') || '60'
-        setError(`Too many requests. Please try again in ${retryAfter} seconds.`)
+        setError(tErrors('tooManyRequests', { seconds: retryAfter }))
         return
       }
 
       const result = await response.json()
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to delete guest')
+        throw new Error(result.error || tErrors('failedToDeleteGuest'))
       }
 
       // Remove from local state
@@ -116,7 +117,7 @@ export function GuestList({ guests: initialGuests, tenantId, primaryColor }: Gue
       setSelectedGuest(null)
     } catch (err) {
       console.error('Delete guest error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to delete guest')
+      setError(err instanceof Error ? err.message : tErrors('failedToDeleteGuest'))
     } finally {
       setIsDeleting(false)
     }

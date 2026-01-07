@@ -76,21 +76,21 @@ export function LoginForm({ tenant, redirectTo }: LoginFormProps) {
         // Profile not found - account may have been deleted
         if (profileError?.code === 'PGRST116' || !profile) {
           await supabase.auth.signOut()
-          setError('Account not found. Your account may have been deleted. Please contact the property owner or register for a new account.')
+          setError(tErrors('accountNotFound'))
           return
         }
 
         if (profile.role === 'super_admin') {
           // Super admins should use admin login
           await supabase.auth.signOut()
-          setError('Super admins should use the admin portal to sign in.')
+          setError(tErrors('superAdminUseAdminPortal'))
           return
         }
 
         if (profile.role === 'host') {
           // Hosts should use host portal
           await supabase.auth.signOut()
-          setError('Hosts should use the host portal to sign in. Go to /admin/login')
+          setError(tErrors('hostUseHostPortal'))
           return
         }
 

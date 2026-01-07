@@ -78,7 +78,7 @@ export function RoomImageUpload({
 
         if (uploadError) {
           console.error('Upload error:', uploadError)
-          setError(`Failed to upload ${file.name}: ${uploadError.message}`)
+          setError(t('failedToUploadFile', { fileName: file.name }) + `: ${uploadError.message}`)
           continue
         }
 

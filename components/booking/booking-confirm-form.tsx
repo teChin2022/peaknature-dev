@@ -60,6 +60,7 @@ export function BookingConfirmForm({
   const router = useRouter()
   const supabase = createClient()
   const t = useTranslations('booking')
+  const tErrors = useTranslations('errors')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -249,7 +250,7 @@ export function BookingConfirmForm({
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      setError(err instanceof Error ? err.message : tErrors('unexpectedError'))
     } finally {
       setIsLoading(false)
     }
@@ -276,7 +277,7 @@ export function BookingConfirmForm({
         router.push(`/${tenant.slug}/booking/confirmation/${booking.id}`)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      setError(err instanceof Error ? err.message : tErrors('unexpectedError'))
     } finally {
       setIsLoading(false)
     }

@@ -90,6 +90,7 @@ export function SubscriptionContent({
   const router = useRouter()
   const supabase = createClient()
   const t = useTranslations('dashboard.subscription')
+  const tErrors = useTranslations('errors')
   const [upgradeDialog, setUpgradeDialog] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadedProof, setUploadedProof] = useState<string | null>(null)
@@ -137,12 +138,12 @@ export function SubscriptionContent({
       // Handle rate limiting
       if (response.status === 429) {
         const retryAfter = response.headers.get('Retry-After') || '60'
-        setError(`Too many requests. Please try again in ${retryAfter} seconds.`)
+        setError(tErrors('tooManyRequests', { seconds: retryAfter }))
         return
       }
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit payment')
+        throw new Error(result.error || tErrors('failedToSubmitPayment'))
       }
 
       setSuccess(true)
@@ -153,7 +154,7 @@ export function SubscriptionContent({
       }, 2000)
     } catch (err) {
       console.error('Error submitting payment:', err)
-      setError(err instanceof Error ? err.message : 'Failed to submit payment')
+      setError(err instanceof Error ? err.message : tErrors('failedToSubmitPayment'))
     } finally {
       setIsUploading(false)
     }
@@ -183,7 +184,7 @@ export function SubscriptionContent({
       setUploadedProof(publicUrl)
     } catch (err) {
       console.error('Error uploading file:', err)
-      setError(err instanceof Error ? err.message : 'Failed to upload file')
+      setError(err instanceof Error ? err.message : tErrors('failedToUploadFile'))
     } finally {
       setIsUploading(false)
     }

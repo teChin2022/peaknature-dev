@@ -1010,7 +1010,7 @@ export function SettingsPageContent({ slug, tenant, initialSettings }: SettingsP
                         {t('uploadQRCodeHint')}
                       </p>
                       <p className="text-xs text-gray-400">
-                        Supports: JPG, PNG, WEBP
+                        {t('qrSupportedFormats')}
                       </p>
                     </div>
                   )}
@@ -1090,17 +1090,17 @@ export function SettingsPageContent({ slug, tenant, initialSettings }: SettingsP
                     })}
                   >
                     <SelectTrigger className="w-full md:w-64 bg-white">
-                      <SelectValue placeholder="Select timeout" />
+                      <SelectValue placeholder={t('selectTimeout')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="3">3 minutes</SelectItem>
-                      <SelectItem value="5">5 minutes</SelectItem>
-                      <SelectItem value="10">10 minutes</SelectItem>
-                      <SelectItem value="15">15 minutes (recommended)</SelectItem>
-                      <SelectItem value="20">20 minutes</SelectItem>
-                      <SelectItem value="30">30 minutes</SelectItem>
-                      <SelectItem value="45">45 minutes</SelectItem>
-                      <SelectItem value="60">1 hour</SelectItem>
+                      <SelectItem value="3">{t('timeout3min')}</SelectItem>
+                      <SelectItem value="5">{t('timeout5min')}</SelectItem>
+                      <SelectItem value="10">{t('timeout10min')}</SelectItem>
+                      <SelectItem value="15">{t('timeout15min')}</SelectItem>
+                      <SelectItem value="20">{t('timeout20min')}</SelectItem>
+                      <SelectItem value="30">{t('timeout30min')}</SelectItem>
+                      <SelectItem value="45">{t('timeout45min')}</SelectItem>
+                      <SelectItem value="60">{t('timeout60min')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-500">
@@ -1202,7 +1202,7 @@ export function SettingsPageContent({ slug, tenant, initialSettings }: SettingsP
                         line_user_id: settings.payment?.line_user_id || ''
                       }
                     })}
-                    placeholder="Enter your LINE Channel Access Token"
+                    placeholder={t('channelAccessTokenPlaceholder')}
                   />
                   <p className="text-xs text-gray-500">
                     {t('channelAccessTokenHint')}
