@@ -1,6 +1,7 @@
 'use client'
 
-import { ExternalLink, LogOut } from 'lucide-react'
+import Link from 'next/link'
+import { ExternalLink, LogOut, UserCircle } from 'lucide-react'
 import { DashboardLanguageSwitcher } from './dashboard-language-switcher'
 import { useTranslations } from 'next-intl'
 
@@ -16,6 +17,13 @@ export function SidebarActions({ slug }: SidebarActionsProps) {
       {/* Language Switcher */}
       <DashboardLanguageSwitcher variant="desktop" />
       
+      <Link
+        href="/host/account"
+        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all duration-150 text-sm font-medium cursor-pointer"
+      >
+        <UserCircle className="h-[18px] w-[18px]" />
+        {t('actions.myAccount')}
+      </Link>
       <a
         href={`/${slug}`}
         target="_blank"

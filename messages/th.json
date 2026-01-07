@@ -625,7 +625,8 @@
     "actions": {
       "viewPublicSite": "ดูหน้าเว็บไซต์",
       "signOut": "ออกจากระบบ",
-      "selectLanguage": "เลือกภาษา"
+      "selectLanguage": "เลือกภาษา",
+      "myAccount": "บัญชีของฉัน"
     },
     "stats": {
       "totalRooms": "ห้องพักทั้งหมด",
@@ -1265,6 +1266,53 @@
       "questionsFooter": "หากมีคำถาม สามารถติดต่อเราได้ตลอดเวลา",
       "subject": "ยืนยันการจอง - {roomName} ({checkIn} - {checkOut})"
     }
+  },
+  "hostAccount": {
+    "title": "บัญชีของฉัน",
+    "subtitle": "จัดการข้อมูลบัญชีส่วนตัวของคุณ",
+    "backToDashboard": "กลับไปแดชบอร์ด",
+    "viewProperty": "ดูที่พัก",
+    "managingProperty": "กำลังจัดการที่พัก",
+    "propertySettings": "ตั้งค่าที่พัก",
+    "personalInfo": "ข้อมูลส่วนตัว",
+    "personalInfoDesc": "ข้อมูลส่วนตัวของคุณในฐานะเจ้าของที่พัก",
+    "profilePhoto": "URL รูปโปรไฟล์",
+    "profilePhotoHint": "ใส่ URL รูปโปรไฟล์ของคุณ",
+    "fullName": "ชื่อ-นามสกุล",
+    "email": "อีเมล",
+    "emailHint": "ไม่สามารถเปลี่ยนอีเมลได้ ติดต่อผู้ดูแลระบบหากต้องการเปลี่ยน",
+    "phone": "เบอร์โทรศัพท์",
+    "phoneHint": "เบอร์โทรศัพท์ส่วนตัวของคุณ (แยกจากเบอร์ติดต่อที่พัก)",
+    "saveChanges": "บันทึกการเปลี่ยนแปลง",
+    "saving": "กำลังบันทึก...",
+    "profileUpdated": "อัปเดตโปรไฟล์สำเร็จ!",
+    "changePassword": "เปลี่ยนรหัสผ่าน",
+    "changePasswordDesc": "อัปเดตรหัสผ่านเพื่อความปลอดภัยของบัญชี",
+    "currentPassword": "รหัสผ่านปัจจุบัน",
+    "newPassword": "รหัสผ่านใหม่",
+    "confirmNewPassword": "ยืนยันรหัสผ่านใหม่",
+    "passwordHint": "ต้องมีอย่างน้อย 6 ตัวอักษร",
+    "changingPassword": "กำลังเปลี่ยนรหัสผ่าน...",
+    "passwordChanged": "เปลี่ยนรหัสผ่านสำเร็จ!",
+    "language": "ภาษา",
+    "languageDesc": "เลือกภาษาที่ต้องการใช้ในแดชบอร์ด",
+    "dangerZone": "โซนอันตราย",
+    "dangerZoneDesc": "การกระทำที่ไม่สามารถย้อนกลับได้",
+    "deleteAccount": "ลบบัญชี",
+    "deleteAccountDesc": "ลบบัญชีและที่พักอย่างถาวร รวมถึงห้องพัก การจอง และข้อมูลผู้เข้าพักทั้งหมด",
+    "deleteConfirmTitle": "ลบบัญชีและที่พัก",
+    "deleteConfirmDesc": "การกระทำนี้ไม่สามารถย้อนกลับได้ ข้อมูลทั้งหมดของคุณจะถูกลบอย่างถาวร",
+    "dataToDelete": "ข้อมูลที่จะถูกลบอย่างถาวร:",
+    "deleteProfileInfo": "ข้อมูลโปรไฟล์ส่วนตัวของคุณ",
+    "deleteProperty": "ที่พักทั้งหมดของคุณ",
+    "deleteBookings": "การจองและประวัติการจองทั้งหมด",
+    "deleteReviews": "รีวิวจากผู้เข้าพักทั้งหมด",
+    "warning": "คำเตือน",
+    "deleteWarning": "หากคุณมีการจองที่ยังไม่เสร็จสิ้น กรุณายกเลิกและคืนเงินก่อนลบบัญชี",
+    "deleteConfirmHint": "กรุณาพิมพ์",
+    "deleteConfirmHint2": "เพื่อยืนยัน:",
+    "deleting": "กำลังลบ...",
+    "deleteMyAccount": "ลบบัญชีและที่พักของฉัน"
   },
   "slipVerification": {
     "alerts": {

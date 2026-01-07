@@ -625,7 +625,8 @@
     "actions": {
       "viewPublicSite": "View Public Site",
       "signOut": "Sign Out",
-      "selectLanguage": "Select Language"
+      "selectLanguage": "Select Language",
+      "myAccount": "My Account"
     },
     "stats": {
       "totalRooms": "Total Rooms",
@@ -1265,6 +1266,53 @@
       "questionsFooter": "If you have any questions, please don't hesitate to contact us.",
       "subject": "Booking Confirmed - {roomName} ({checkIn} - {checkOut})"
     }
+  },
+  "hostAccount": {
+    "title": "My Account",
+    "subtitle": "Manage your personal account information",
+    "backToDashboard": "Back to Dashboard",
+    "viewProperty": "View Property",
+    "managingProperty": "Managing Property",
+    "propertySettings": "Property Settings",
+    "personalInfo": "Personal Information",
+    "personalInfoDesc": "Your personal details as the property owner",
+    "profilePhoto": "Profile Photo URL",
+    "profilePhotoHint": "Enter a URL to your profile photo",
+    "fullName": "Full Name",
+    "email": "Email Address",
+    "emailHint": "Email cannot be changed. Contact support if you need to update it.",
+    "phone": "Phone Number",
+    "phoneHint": "Your personal phone number (separate from property contact)",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "profileUpdated": "Profile updated successfully!",
+    "changePassword": "Change Password",
+    "changePasswordDesc": "Update your password to keep your account secure",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "passwordHint": "Must be at least 6 characters",
+    "changingPassword": "Changing Password...",
+    "passwordChanged": "Password changed successfully!",
+    "language": "Language",
+    "languageDesc": "Choose your preferred language for the dashboard",
+    "dangerZone": "Danger Zone",
+    "dangerZoneDesc": "Irreversible and destructive actions",
+    "deleteAccount": "Delete Account",
+    "deleteAccountDesc": "Permanently delete your account and property. This will remove all your data including rooms, bookings, and guests.",
+    "deleteConfirmTitle": "Delete Account & Property",
+    "deleteConfirmDesc": "This action cannot be undone. This will permanently delete your account and ALL associated data.",
+    "dataToDelete": "The following data will be permanently deleted:",
+    "deleteProfileInfo": "Your personal profile information",
+    "deleteProperty": "Your entire property",
+    "deleteBookings": "All bookings and reservation history",
+    "deleteReviews": "All guest reviews",
+    "warning": "Warning",
+    "deleteWarning": "If you have active bookings, please cancel them and process refunds before deleting your account.",
+    "deleteConfirmHint": "Please type",
+    "deleteConfirmHint2": "to confirm:",
+    "deleting": "Deleting...",
+    "deleteMyAccount": "Delete My Account & Property"
   },
   "slipVerification": {
     "alerts": {

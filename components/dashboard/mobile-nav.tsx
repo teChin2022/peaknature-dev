@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { 
-  Menu, X, ExternalLink, LogOut,
+  Menu, X, ExternalLink, LogOut, UserCircle,
   LayoutDashboard, BedDouble, Calendar, ClipboardList, 
   Users, Star, BarChart3, Settings, CreditCard
 } from 'lucide-react'
@@ -89,6 +89,15 @@ export function MobileNav({ tenant, slug }: MobileNavProps) {
             <DashboardLanguageSwitcher variant="mobile" />
             
             <hr className="border-gray-100 my-2" />
+            
+            <Link
+              href="/host/account"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium cursor-pointer"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <UserCircle className="h-4 w-4" />
+              {t('actions.myAccount')}
+            </Link>
             
             <a
               href={`/${slug}`}
