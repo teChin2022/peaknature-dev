@@ -212,7 +212,9 @@ export async function POST(request: NextRequest) {
       p_user_id: user.id,
       p_check_in: booking.check_in,
       p_check_out: booking.check_out
-    }).catch(err => logger.error('Failed to release reservation lock', err))
+    }).then(result => {
+      if (result.error) logger.error('Failed to release reservation lock', result.error)
+    })
 
     // Send notifications in background (don't block the response)
     // This significantly speeds up the response time for the user
