@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -21,7 +21,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export default function HostLoginPage() {
+function HostLoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -379,3 +379,34 @@ export default function HostLoginPage() {
   )
 }
 
+// Loading fallback for Suspense
+function LoginLoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-teal-50 px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 mb-4">
+            <Building2 className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-stone-900">
+            Host Portal
+          </h1>
+          <p className="text-sm sm:text-base text-stone-600 mt-2">
+            Loading...
+          </p>
+        </div>
+        <div className="bg-white rounded-2xl border border-stone-200 shadow-xl p-6 sm:p-8 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function HostLoginPage() {
+  return (
+    <Suspense fallback={<LoginLoadingFallback />}>
+      <HostLoginContent />
+    </Suspense>
+  )
+}
