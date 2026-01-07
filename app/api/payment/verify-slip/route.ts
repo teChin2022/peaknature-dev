@@ -110,13 +110,13 @@ export async function POST(request: NextRequest) {
     const slipUrlHash = generateSlipHash(slipUrl)
 
     // ALWAYS check for duplicate slip by URL hash first
-    const { data: existingByHash, error: hashCheckError } = await supabase
+    const { data: existingByHash } = await supabase
       .from('verified_slips')
       .select('id, booking_id, verified_at')
       .eq('slip_url_hash', slipUrlHash)
-      .single()
+      .maybeSingle()
 
-    if (!hashCheckError && existingByHash) {
+    if (existingByHash) {
       return NextResponse.json({
         success: false,
         error: 'This payment slip has already been used for another booking. Please make a new payment and upload the new slip.'
@@ -145,7 +145,8 @@ export async function POST(request: NextRequest) {
     // Execute DB operations in parallel
     const [updateResult] = await Promise.all([
       supabase.from('bookings').update(updateData).eq('id', bookingId),
-      supabase.from('verified_slips').insert({
+      // Use adminClient to bypass RLS for verified_slips insert
+      adminClient.from('verified_slips').insert({
         trans_ref: null,
         slip_url_hash: slipUrlHash,
         booking_id: bookingId,
@@ -339,8 +340,8 @@ export async function POST(request: NextRequest) {
             verified: verificationResult.verified 
           })
 
-          // Update verified_slips with result
-          await supabase
+          // Update verified_slips with result (use adminClient to bypass RLS)
+          await adminClient
             .from('verified_slips')
             .update({
               easyslip_data: verificationResult?.data || null,
@@ -360,8 +361,8 @@ export async function POST(request: NextRequest) {
 
             logger.warn('FRAUD DETECTED - Auto-cancelling', { bookingId, reason: failReason })
 
-            // Cancel booking
-            await supabase
+            // Cancel booking (use adminClient to bypass RLS)
+            await adminClient
               .from('bookings')
               .update({ status: 'cancelled', notes: `[Auto-cancelled] ${failReason}` })
               .eq('id', bookingId)

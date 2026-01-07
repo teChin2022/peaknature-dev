@@ -145,7 +145,7 @@ export function PaymentSlipUpload({
         .eq('check_in', checkIn)
         .eq('check_out', checkOut)
         .in('status', ['pending', 'awaiting_payment'])
-        .single()
+        .maybeSingle()
 
       let bookingToUse = existingBooking
       let isNewBooking = false
