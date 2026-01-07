@@ -137,33 +137,54 @@ export async function POST(request: NextRequest) {
     // If client provided content hash, use it; otherwise calculate from image
     debugStep = 'calculate-content-hash'
     let contentHash = providedContentHash
+    let hashSource = 'client-provided'
+    
     if (!contentHash) {
-      console.log('[verify-slip] No content hash provided, calculating from image...')
+      console.log('[verify-slip] ⚠️ No content hash provided by client, calculating from image...')
+      hashSource = 'server-calculated'
       contentHash = await calculateImageContentHash(slipUrl)
       if (!contentHash) {
         // Fallback to URL hash if content hash calculation fails
-        console.log('[verify-slip] Content hash calculation failed, falling back to URL hash')
+        console.log('[verify-slip] ⚠️ Content hash calculation failed, falling back to URL hash (LESS RELIABLE)')
+        hashSource = 'url-hash-fallback'
         contentHash = generateSlipHash(slipUrl)
       }
     }
-    console.log('[verify-slip] Using content hash:', contentHash.substring(0, 16) + '...')
+    console.log('[verify-slip] Using content hash:', { 
+      hash: contentHash.substring(0, 16) + '...', 
+      source: hashSource,
+      bookingId 
+    })
 
     // ALWAYS check for duplicate slip by content hash first
     debugStep = 'check-duplicate'
-    const { data: existingByHash } = await supabase
+    const { data: existingByHash, error: duplicateCheckError } = await supabase
       .from('verified_slips')
       .select('id, booking_id, verified_at')
       .eq('slip_url_hash', contentHash)
       .maybeSingle()
 
+    if (duplicateCheckError) {
+      console.error('[verify-slip] Error checking for duplicates:', duplicateCheckError)
+    }
+
     if (existingByHash) {
-      console.log('[verify-slip] DUPLICATE DETECTED!', { contentHash: contentHash.substring(0, 16), existingBookingId: existingByHash.booking_id })
+      console.log('[verify-slip] 🚫 DUPLICATE DETECTED!', { 
+        contentHash: contentHash.substring(0, 16), 
+        existingBookingId: existingByHash.booking_id,
+        currentBookingId: bookingId,
+        verifiedAt: existingByHash.verified_at
+      })
       return NextResponse.json({
         success: false,
         error: 'This payment slip has already been used for another booking. Please make a new payment and upload the new slip.'
       })
     }
-    console.log('[verify-slip] No duplicate found, proceeding...', { contentHash: contentHash.substring(0, 16) })
+    console.log('[verify-slip] ✅ No duplicate found, proceeding...', { 
+      contentHash: contentHash.substring(0, 16),
+      bookingId,
+      hashSource
+    })
 
     // Check if EasySlip verification is enabled
     const easySlipApiKey = process.env.EASYSLIP_API_KEY
@@ -218,15 +239,25 @@ export async function POST(request: NextRequest) {
     if (slipResult.error) {
       console.error('[verify-slip] CRITICAL: Failed to store verified slip!', slipResult.error)
       
+      // Check if this is a unique constraint violation (duplicate slip)
+      const isDuplicateError = slipResult.error.code === '23505' || 
+        slipResult.error.message?.includes('unique') ||
+        slipResult.error.message?.includes('duplicate') ||
+        slipResult.error.message?.includes('unique_slip_url_hash')
+      
       // Rollback: Cancel the booking since we can't prevent duplicate slips
       await adminClient.from('bookings').update({ 
         status: 'cancelled', 
-        notes: '[System] Failed to verify slip - please try again' 
+        notes: isDuplicateError 
+          ? '[System] Duplicate slip detected - booking cancelled' 
+          : '[System] Failed to verify slip - please try again' 
       }).eq('id', bookingId)
       
       return NextResponse.json({
         success: false,
-        error: 'Failed to verify payment. Please try again.'
+        error: isDuplicateError 
+          ? 'This payment slip has already been used for another booking. Please make a new payment and upload the new slip.'
+          : 'Failed to verify payment. Please try again.'
       }, { status: 500 })
     }
     

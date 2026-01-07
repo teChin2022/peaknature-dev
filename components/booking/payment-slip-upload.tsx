@@ -225,6 +225,14 @@ export function PaymentSlipUpload({
       }
 
       // Verify with EasySlip
+      console.log('[PaymentSlipUpload] Sending verification request:', {
+        bookingId: bookingToUse.id,
+        hasSlipUrl: !!slipUrl,
+        hasContentHash: !!slipContentHash,
+        contentHashPreview: slipContentHash ? slipContentHash.substring(0, 16) + '...' : 'NULL',
+        expectedAmount: totalPrice
+      })
+      
       const response = await fetch('/api/payment/verify-slip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
