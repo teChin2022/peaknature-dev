@@ -167,11 +167,13 @@ export async function sendEmail(options: EmailOptions): Promise<NotificationResu
   }
 
   // Build the FROM address
-  // Use platform email but with tenant name if provided
-  const platformEmail = process.env.EMAIL_FROM || 'noreply@homestay.com'
+  // Use platform email if configured, otherwise use Resend's free test email
+  // Note: For production, set EMAIL_FROM to a verified domain email (e.g., noreply@yourdomain.com)
+  // Resend's test email (onboarding@resend.dev) works for development without domain verification
+  const platformEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev'
   const fromAddress = fromName 
     ? `${fromName} <${platformEmail}>`
-    : `Homestay Booking <${platformEmail}>`
+    : `Peaksnature <${platformEmail}>`
 
   try {
     const emailPayload: Record<string, unknown> = {
