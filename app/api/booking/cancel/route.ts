@@ -137,7 +137,13 @@ export async function POST(request: NextRequest) {
       const currency = settings.currency || 'USD'
       
       // Prepare notification content
-      const guestName = booking.guest?.full_name || 'Guest'
+      // Get guest name with multiple fallbacks for better display
+      const guestName = 
+        booking.guest?.full_name || 
+        user.user_metadata?.full_name || 
+        user.user_metadata?.name || 
+        booking.guest?.email?.split('@')[0] || // Use email prefix as last resort
+        'Guest'
       const guestEmail = booking.guest?.email || 'N/A'
       const guestPhone = booking.guest?.phone || 'N/A'
       const roomName = booking.room?.name || 'Room'

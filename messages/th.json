@@ -220,6 +220,8 @@
     "specialRequests": "คำขอพิเศษ (ไม่บังคับ)",
     "specialRequestsDesc": "รวมถึงคำขอรับ-ส่ง, เวลาเดินทางถึง หรือความต้องการพิเศษอื่นๆ",
     "uploadPaymentSlip": "อัปโหลดสลิปการชำระเงิน",
+    "preparingUpload": "กำลังเตรียมพร้อม...",
+    "pleaseWait": "กรุณารอสักครู่",
     "dropSlipHere": "วางสลิปที่นี่",
     "afterPayingUpload": "หลังจากชำระเงิน ให้ถ่ายภาพหน้าจอและอัปโหลดที่นี่",
     "supportedFormatsDetail": "รองรับ: JPG, PNG, WEBP (สูงสุด 10MB)",

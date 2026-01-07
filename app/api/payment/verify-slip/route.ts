@@ -345,7 +345,19 @@ export async function POST(request: NextRequest) {
     const sendNotificationsAsync = async () => {
       try {
         const currency = settings.currency || 'USD'
-        const guestName = booking.user?.full_name || booking.user?.email || 'Guest'
+        // Get guest name from multiple sources with fallbacks:
+        // 1. Profile's full_name (primary source, most up-to-date)
+        // 2. Auth user's metadata full_name (from registration)
+        // 3. Auth user's metadata name (from OAuth providers like Google/Facebook)
+        // 4. Profile's email (last resort)
+        // 5. Fallback to 'Guest' if all else fails
+        const authUserMeta = user?.user_metadata
+        const guestName = 
+          booking.user?.full_name || 
+          authUserMeta?.full_name || 
+          authUserMeta?.name || 
+          booking.user?.email || 
+          'Guest'
         const roomName = booking.room?.name || 'Room'
         const checkIn = format(parseISO(booking.check_in), 'MMM d, yyyy')
         const checkOut = format(parseISO(booking.check_out), 'MMM d, yyyy')
@@ -631,7 +643,13 @@ export async function POST(request: NextRequest) {
               // For system errors, notify admin but DON'T cancel booking (manual review needed)
               console.log('[verify-slip] ⚠️ EasySlip system error - manual review needed', { errorCode, errorMessage })
               
-              const guestName = booking.user?.full_name || booking.user?.email || 'Unknown'
+              // Get guest name with multiple fallbacks
+              const guestName = 
+                booking.user?.full_name || 
+                user?.user_metadata?.full_name || 
+                user?.user_metadata?.name || 
+                booking.user?.email || 
+                'Unknown'
               const roomName = booking.room?.name || 'Unknown Room'
               const bookingCode = bookingId.slice(0, 8).toUpperCase()
               const translatedError = t?.slipVerification?.easyslipErrors?.[errorCode as keyof (typeof t.slipVerification)['easyslipErrors']] || errorMessage
@@ -700,7 +718,13 @@ export async function POST(request: NextRequest) {
               // Unknown error type (not in fraud or system error lists) - still notify admin
               console.log('[verify-slip] ⚠️ Unknown error type, notifying admin')
               
-              const guestName = booking.user?.full_name || booking.user?.email || 'Unknown'
+              // Get guest name with multiple fallbacks
+              const guestName = 
+                booking.user?.full_name || 
+                user?.user_metadata?.full_name || 
+                user?.user_metadata?.name || 
+                booking.user?.email || 
+                'Unknown'
               const roomName = booking.room?.name || 'Unknown Room'
               const bookingCode = bookingId.slice(0, 8).toUpperCase()
               
@@ -816,7 +840,13 @@ export async function POST(request: NextRequest) {
               .eq('id', bookingId)
 
             // Prepare alert message using translations
-            const guestName = booking.user?.full_name || booking.user?.email || 'Unknown'
+            // Get guest name with multiple fallbacks
+            const guestName = 
+              booking.user?.full_name || 
+              user?.user_metadata?.full_name || 
+              user?.user_metadata?.name || 
+              booking.user?.email || 
+              'Unknown'
             const roomName = booking.room?.name || 'Unknown Room'
             const bookingCode = bookingId.slice(0, 8).toUpperCase()
             

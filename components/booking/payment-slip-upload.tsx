@@ -74,12 +74,19 @@ export function PaymentSlipUpload({
   // Pre-warm auth session on component mount
   // This ensures the first upload is fast by caching the user session ahead of time
   useEffect(() => {
+    // Only pre-warm if not already loaded
+    if (cachedUser) {
+      setIsAuthLoading(false)
+      return
+    }
+    
     console.log('[PaymentSlipUpload] Pre-warming auth session...')
     const warmUpAuth = async () => {
       try {
+        const startTime = Date.now()
         const { data: { user } } = await supabase.auth.getUser()
         setCachedUser(user)
-        console.log('[PaymentSlipUpload] Auth pre-warmed:', user?.id?.substring(0, 8) + '...')
+        console.log('[PaymentSlipUpload] Auth pre-warmed in', Date.now() - startTime, 'ms:', user?.id?.substring(0, 8) + '...')
       } catch (err) {
         console.error('[PaymentSlipUpload] Auth pre-warm failed:', err)
       } finally {
@@ -87,7 +94,7 @@ export function PaymentSlipUpload({
       }
     }
     warmUpAuth()
-  }, [supabase])
+  }, [supabase, cachedUser])
 
   // Sync with transport note from parent
   useEffect(() => {
@@ -522,24 +529,28 @@ export function PaymentSlipUpload({
 
       {/* Drop zone */}
       <div
-        onClick={() => fileInputRef.current?.click()}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        onClick={() => !isAuthLoading && fileInputRef.current?.click()}
+        onDrop={isAuthLoading ? undefined : handleDrop}
+        onDragOver={isAuthLoading ? undefined : handleDragOver}
+        onDragLeave={isAuthLoading ? undefined : handleDragLeave}
         className={`
-          relative cursor-pointer rounded-xl border-2 border-dashed transition-all
-          ${isDragging 
-            ? 'border-blue-400 bg-blue-50' 
-            : 'border-stone-300 hover:border-stone-400 hover:bg-stone-50'
+          relative rounded-xl border-2 border-dashed transition-all
+          ${isAuthLoading 
+            ? 'border-stone-200 bg-stone-50 cursor-wait'
+            : isDragging 
+              ? 'border-blue-400 bg-blue-50 cursor-pointer' 
+              : 'border-stone-300 hover:border-stone-400 hover:bg-stone-50 cursor-pointer'
           }
         `}
       >
         <div className="p-6 text-center">
           <div 
             className="h-14 w-14 mx-auto rounded-full flex items-center justify-center mb-3"
-            style={{ backgroundColor: `${primaryColor}15` }}
+            style={{ backgroundColor: isAuthLoading ? '#e5e7eb' : `${primaryColor}15` }}
           >
-            {isDragging ? (
+            {isAuthLoading ? (
+              <Loader2 className="h-7 w-7 animate-spin text-stone-400" />
+            ) : isDragging ? (
               <Upload className="h-7 w-7" style={{ color: primaryColor }} />
             ) : (
               <ImageIcon className="h-7 w-7" style={{ color: primaryColor }} />
@@ -547,17 +558,24 @@ export function PaymentSlipUpload({
           </div>
           
           <p className="text-base font-medium text-stone-900 mb-1">
-            {isDragging 
-              ? t('dropSlipHere')
-              : t('uploadPaymentSlip')
+            {isAuthLoading 
+              ? t('preparingUpload') || 'Preparing...'
+              : isDragging 
+                ? t('dropSlipHere')
+                : t('uploadPaymentSlip')
             }
           </p>
           <p className="text-sm text-stone-500">
-            {t('afterPayingUpload')}
+            {isAuthLoading 
+              ? t('pleaseWait') || 'Please wait a moment'
+              : t('afterPayingUpload')
+            }
           </p>
-          <p className="text-xs text-stone-400 mt-2">
-            {t('supportedFormatsDetail')}
-          </p>
+          {!isAuthLoading && (
+            <p className="text-xs text-stone-400 mt-2">
+              {t('supportedFormatsDetail')}
+            </p>
+          )}
         </div>
 
         <input
@@ -566,6 +584,7 @@ export function PaymentSlipUpload({
           accept="image/*"
           onChange={handleFileSelect}
           className="hidden"
+          disabled={isAuthLoading}
         />
       </div>
 
@@ -587,6 +606,7 @@ export function PaymentSlipUpload({
           variant="outline"
           className="w-full h-12 gap-2"
           onClick={() => setShowQRModal(true)}
+          disabled={isAuthLoading}
         >
           <Smartphone className="h-5 w-5" />
           {t('uploadFromPhone')}
@@ -642,12 +662,12 @@ export function PaymentSlipUpload({
         </div>
       )}
 
-      {/* Confirm Payment Button - Always visible, disabled when no slip */}
+      {/* Confirm Payment Button - Always visible, disabled when no slip or auth loading */}
       <Button 
         onClick={handleConfirmPayment}
         className="w-full h-12 text-base font-semibold text-white gap-2"
         style={{ backgroundColor: primaryColor }}
-        disabled={!slipUrl || isUploading}
+        disabled={!slipUrl || isUploading || isAuthLoading}
       >
         <Send className="h-5 w-5" />
         {t('confirmPayment')}

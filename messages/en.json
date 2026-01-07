@@ -220,6 +220,8 @@
     "specialRequests": "Special Requests (Optional)",
     "specialRequestsDesc": "Include pickup/drop-off requests, arrival time, or other special needs.",
     "uploadPaymentSlip": "Upload payment slip",
+    "preparingUpload": "Preparing...",
+    "pleaseWait": "Please wait a moment",
     "dropSlipHere": "Drop your slip here",
     "afterPayingUpload": "After paying, take a screenshot and upload here",
     "supportedFormatsDetail": "Supports: JPG, PNG, WEBP (max 10MB)",
