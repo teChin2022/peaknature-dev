@@ -17,6 +17,7 @@ function generateSlipHash(slipUrl: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[verify-slip] ========== REQUEST RECEIVED ==========')
   let debugStep = 'init'
   try {
     // Rate limiting - 10 requests per minute per IP
@@ -420,6 +421,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Return success immediately - user doesn't wait for EasySlip!
+    console.log('[verify-slip] ========== RETURNING SUCCESS ==========', { bookingId })
     return NextResponse.json({
       success: true,
       verified: true,

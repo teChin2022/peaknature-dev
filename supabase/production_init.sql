@@ -424,6 +424,7 @@ CREATE INDEX IF NOT EXISTS idx_date_waitlist_room_dates ON date_waitlist(room_id
 CREATE INDEX IF NOT EXISTS idx_verified_slips_trans_ref ON verified_slips(trans_ref);
 CREATE INDEX IF NOT EXISTS idx_verified_slips_slip_url_hash ON verified_slips(slip_url_hash);
 CREATE INDEX IF NOT EXISTS idx_verified_slips_tenant ON verified_slips(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_verified_slips_booking_id ON verified_slips(booking_id);
 
 -- Upload tokens indexes
 CREATE INDEX IF NOT EXISTS idx_upload_tokens_token ON upload_tokens(token);

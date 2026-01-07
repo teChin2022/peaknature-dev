@@ -126,6 +126,10 @@ export function PaymentSlipUpload({
     setError(null)
     setIsVerifying(true)
 
+    // Declare these outside try block so they're accessible in catch
+    let bookingToUse: { id: string } | null = null
+    let isNewBooking = false
+
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
@@ -147,8 +151,7 @@ export function PaymentSlipUpload({
         .in('status', ['pending', 'awaiting_payment'])
         .maybeSingle()
 
-      let bookingToUse = existingBooking
-      let isNewBooking = false
+      bookingToUse = existingBooking
 
       // If no existing booking, create one
       if (!existingBooking) {
@@ -242,13 +245,13 @@ export function PaymentSlipUpload({
 
       // Redirect to confirmation after delay
       setTimeout(() => {
-        router.push(`/${tenantSlug}/booking/confirmation/${bookingToUse.id}`)
+        router.push(`/${tenantSlug}/booking/confirmation/${bookingToUse!.id}`)
       }, 2000)
 
     } catch (err) {
       console.error('Verification error:', err)
-      // Delete the booking since an error occurred
-      if (bookingToUse && isNewBooking) {
+      // Delete the booking since an error occurred (now accessible due to outer scope)
+      if (isNewBooking && bookingToUse) {
         await supabase
           .from('bookings')
           .delete()
