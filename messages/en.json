@@ -876,6 +876,16 @@
       "senderBank": "🏦 Sender Bank: {bank}",
       "receiverBank": "🏦 Receiver Bank: {bank}",
       "autoCancelled": "⚠️ Booking has been auto-cancelled."
+    },
+    "systemErrors": {
+      "title": "⚠️ EasySlip Verification Failed - Manual Review Needed",
+      "bookingCode": "📋 Code: {code}",
+      "guest": "👤 Guest: {name}",
+      "room": "🏠 Room: {name}",
+      "amount": "💰 Amount: {amount} THB",
+      "error": "❌ Error: {message}",
+      "manualReview": "📌 Please review the slip manually.",
+      "statusRemains": "   Booking status remains \"confirmed\"."
     }
   }
 }

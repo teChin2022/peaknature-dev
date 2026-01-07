@@ -504,16 +504,43 @@ export async function POST(request: NextRequest) {
           const t = await getTranslations(tenantLocale)
           const tEn = await getTranslations('en') // Admin always gets English
           
-          // 1. Check if EasySlip API returned an error (fake slip, invalid, duplicate)
+          // 1. Check if EasySlip API returned an error (fake slip, invalid, duplicate, or API issues)
           if (!verificationResult.success && verificationResult.error?.code) {
             const errorCode = verificationResult.error.code
             const errorMessage = verificationResult.error.message
             
+            // Categorize error types
+            // Fraud errors = slip is fake/invalid (should cancel booking)
+            const fraudErrorCodes = [
+              'slip_not_found',      // Transaction not found in BOT (FAKE!)
+              'duplicate_slip',      // Already verified in EasySlip
+              'invalid_image',       // Not a valid image
+              'invalid_payload',     // Corrupted/modified slip
+              'qrcode_not_found'     // QR code is invalid
+            ]
+            
+            // System errors = API issues (should NOT cancel, just notify)
+            const systemErrorCodes = [
+              'TIMEOUT',             // Request timeout
+              'NETWORK_ERROR',       // Network issue
+              'unauthorized',        // API key invalid
+              'quota_exceeded',      // API quota exceeded
+              'server_error',        // EasySlip server error
+              'api_server_error',    // EasySlip API error
+              'access_denied',       // Account access denied
+              'account_not_verified',// Account not verified
+              'application_expired', // Application expired
+              'application_deactivated' // Application deactivated
+            ]
+            
+            const isFraudError = fraudErrorCodes.includes(errorCode)
+            const isSystemError = systemErrorCodes.includes(errorCode)
+            
             // Log ALL EasySlip errors to audit log for admin review
             await adminClient.from('audit_logs').insert({
-              action: 'easyslip.error',
+              action: isFraudError ? 'easyslip.fraud_error' : 'easyslip.system_error',
               category: 'security',
-              severity: errorCode === 'slip_not_found' || errorCode === 'duplicate_slip' ? 'high' : 'medium',
+              severity: isFraudError ? 'high' : 'medium',
               actor_id: user.id,
               actor_email: user.email,
               actor_role: 'guest',
@@ -524,24 +551,69 @@ export async function POST(request: NextRequest) {
               details: { 
                 easyslip_error_code: errorCode,
                 easyslip_error_message: errorMessage,
+                error_type: isFraudError ? 'fraud' : isSystemError ? 'system' : 'unknown',
                 slip_url: slipUrl,
                 expected_amount: expectedAmount
               },
               success: false
             }).catch(err => logger.error('Failed to log EasySlip error', err))
             
-            // These error codes indicate fraud/invalid slips
-            const fraudErrorCodes = [
-              'slip_not_found',      // Transaction not found in BOT (FAKE!)
-              'duplicate_slip',      // Already verified in EasySlip
-              'invalid_image',       // Not a valid image
-              'invalid_payload',     // Corrupted/modified slip
-              'qrcode_not_found'     // QR code is invalid
-            ]
-            if (fraudErrorCodes.includes(errorCode)) {
+            if (isFraudError) {
               // Use translated error message if available
               const translatedError = t.slipVerification?.easyslipErrors?.[errorCode as keyof typeof t.slipVerification.easyslipErrors] || errorMessage
               fraudReasons.push(t.slipVerification?.fraudReasons?.invalidSlip?.replace('{message}', translatedError) || `Invalid slip: ${errorMessage}`)
+            } else {
+              // For system errors, notify admin but DON'T cancel booking (manual review needed)
+              console.log('[verify-slip] ⚠️ EasySlip system error - manual review needed', { errorCode, errorMessage })
+              
+              const guestName = booking.user?.full_name || booking.user?.email || 'Unknown'
+              const roomName = booking.room?.name || 'Unknown Room'
+              const bookingCode = bookingId.slice(0, 8).toUpperCase()
+              const translatedError = t.slipVerification?.easyslipErrors?.[errorCode as keyof typeof t.slipVerification.easyslipErrors] || errorMessage
+              
+              // Notify host about system error (use tenant's language)
+              if (settings.payment?.line_channel_access_token && settings.payment?.line_user_id) {
+                const sysErr = t.slipVerification?.systemErrors || {}
+                const hostErrorMsg = [
+                  sysErr.title || '⚠️ EasySlip Verification Failed - Manual Review Needed',
+                  (sysErr.bookingCode || '📋 Code: {code}').replace('{code}', bookingCode),
+                  (sysErr.guest || '👤 Guest: {name}').replace('{name}', guestName),
+                  (sysErr.room || '🏠 Room: {name}').replace('{name}', roomName),
+                  (sysErr.amount || '💰 Amount: {amount} THB').replace('{amount}', String(expectedAmount)),
+                  '',
+                  (sysErr.error || '❌ Error: {message}').replace('{message}', translatedError),
+                  '',
+                  sysErr.manualReview || '📌 Please review the slip manually.',
+                  sysErr.statusRemains || '   Booking status remains "confirmed".'
+                ].join('\n')
+                
+                await sendLineMessage({
+                  channelAccessToken: settings.payment.line_channel_access_token,
+                  userId: settings.payment.line_user_id,
+                  message: hostErrorMsg
+                }).catch(err => logger.error('LINE system error alert to host failed', err))
+              }
+              
+              // Notify admin about system error (always English)
+              const adminSysErr = tEn.slipVerification?.systemErrors || {}
+              const adminErrorMsg = [
+                '⚠️ EASYSLIP SYSTEM ERROR',
+                '',
+                `🏠 Tenant: ${tenant.name} (${tenant.slug})`,
+                (adminSysErr.bookingCode || '📋 Code: {code}').replace('{code}', bookingCode),
+                (adminSysErr.guest || '👤 Guest: {name}').replace('{name}', guestName),
+                `📧 Email: ${booking.user?.email || 'N/A'}`,
+                (adminSysErr.amount || '💰 Amount: {amount} THB').replace('{amount}', String(expectedAmount)),
+                '',
+                `❌ Error Code: ${errorCode}`,
+                `❌ Error: ${errorMessage}`,
+                '',
+                adminSysErr.manualReview || '📌 Manual review required.',
+                adminSysErr.statusRemains || '   Booking status remains "confirmed".'
+              ].join('\n')
+              
+              await sendAdminLineNotification(adminErrorMsg)
+                .catch(err => logger.error('LINE system error alert to admin failed', err))
             }
           }
           
@@ -704,8 +776,8 @@ export async function POST(request: NextRequest) {
               },
               success: false
             }).catch(err => logger.error('Failed to log fraud detection', err))
-          } else if (verificationResult.success) {
-            // Log successful verification to audit
+          } else if (verificationResult.success && verificationResult.verified) {
+            // EasySlip verification successful AND amount matches
             await adminClient.from('audit_logs').insert({
               action: 'easyslip.verified',
               category: 'user',
@@ -723,7 +795,8 @@ export async function POST(request: NextRequest) {
                 expectedAmount,
                 senderBank: slipData?.sender?.bank?.short,
                 receiverBank: slipData?.receiver?.bank?.short,
-                slipDate: slipData?.date
+                slipDate: slipData?.date,
+                verificationStatus: 'passed'
               },
               success: true
             }).catch(err => logger.error('Failed to log EasySlip success', err))
@@ -733,6 +806,35 @@ export async function POST(request: NextRequest) {
               transRef: slipData?.transRef,
               amount: slipData?.amount?.amount
             })
+          } else if (!verificationResult.success) {
+            // EasySlip verification failed but no specific fraud detected
+            // (This handles edge cases like unexpected API responses)
+            console.log('[verify-slip] ⚠️ EasySlip verification failed (unhandled case)', {
+              bookingId,
+              success: verificationResult.success,
+              verified: verificationResult.verified,
+              error: verificationResult.error
+            })
+            
+            await adminClient.from('audit_logs').insert({
+              action: 'easyslip.verification_failed',
+              category: 'security',
+              severity: 'medium',
+              actor_id: user.id,
+              actor_email: user.email,
+              actor_role: 'guest',
+              actor_ip: clientIP,
+              target_type: 'booking',
+              target_id: bookingId,
+              tenant_id: tenantId,
+              details: { 
+                error: verificationResult.error,
+                expected_amount: expectedAmount,
+                slip_url: slipUrl,
+                verificationStatus: 'failed_unknown'
+              },
+              success: false
+            }).catch(err => logger.error('Failed to log EasySlip failure', err))
           }
         } catch (err) {
           console.error('[verify-slip] ❌ Background verification error:', err)
