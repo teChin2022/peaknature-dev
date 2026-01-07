@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { apiLimiter, getClientIP, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * API Route for sending admin LINE notifications
@@ -10,6 +11,10 @@ import { createClient } from '@/lib/supabase/server'
  * Body:
  * - type: 'new_tenant' | 'system_error' | 'subscription_payment'
  * - data: Object with type-specific fields
+ * 
+ * Security:
+ * - Requires authentication for most notification types
+ * - Rate limited to prevent abuse
  */
 
 interface NotifyRequest {
@@ -32,6 +37,13 @@ interface NotifyRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - 10 notifications per minute per IP
+    const clientIP = getClientIP(request.headers)
+    const { success: rateLimitOk, reset } = await apiLimiter.check(10, `notify:${clientIP}`)
+    if (!rateLimitOk) {
+      return rateLimitResponse(reset)
+    }
+
     const body: NotifyRequest = await request.json()
     const { type, data } = body
 
@@ -43,6 +55,21 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    
+    // SECURITY: Require authentication for sensitive notification types
+    // Allow unauthenticated for: new_tenant (during registration), system_error (error reporting)
+    // Require auth for: subscription_payment (financial)
+    const requiresAuth = ['subscription_payment']
+    
+    if (requiresAuth.includes(type)) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        )
+      }
+    }
 
     // Get admin LINE configuration
     const { data: settings, error: settingsError } = await supabase

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { getClientIP } from '@/lib/rate-limit'
+import { getClientIP, apiLimiter, rateLimitResponse } from '@/lib/rate-limit'
 
 export interface AuditLogEntry {
   action: string
@@ -20,34 +20,49 @@ export interface AuditLogEntry {
 /**
  * POST /api/admin/audit
  * Log an audit event to the database
+ * 
+ * Security:
+ * - Requires authentication to prevent log injection attacks
+ * - Rate limited to prevent abuse
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - 50 audit logs per minute per IP
+    const clientIP = getClientIP(request.headers)
+    const { success: rateLimitOk, reset } = await apiLimiter.check(50, `audit:${clientIP}`)
+    if (!rateLimitOk) {
+      return rateLimitResponse(reset)
+    }
+
     const supabase = await createClient()
     const adminClient = createAdminClient()
     
-    // Get current user
+    // Get current user - REQUIRE authentication to prevent log injection
     const { data: { user } } = await supabase.auth.getUser()
     
-    // Get user profile for role
-    let actorEmail = user?.email || null
-    let actorRole = 'anonymous'
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
     
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email, role')
-        .eq('id', user.id)
-        .single()
-      
-      if (profile) {
-        actorEmail = profile.email
-        actorRole = profile.role
-      }
+    // Get user profile for role
+    let actorEmail = user.email || null
+    let actorRole = 'guest'
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('email, role')
+      .eq('id', user.id)
+      .single()
+    
+    if (profile) {
+      actorEmail = profile.email
+      actorRole = profile.role
     }
     
     // Get request metadata
-    const clientIP = getClientIP(request.headers)
     const userAgent = request.headers.get('user-agent') || null
     
     // Parse request body

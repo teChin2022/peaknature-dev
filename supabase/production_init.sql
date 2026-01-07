@@ -4,8 +4,8 @@
 -- This file combines all migrations into a single script
 -- for fresh production deployments.
 -- 
--- Generated: 2026-01-06
--- Last Migration: 038_database_cleanup.sql
+-- Generated: 2026-01-08
+-- Last Migration: 047_security_hardening.sql
 -- =====================================================
 
 -- Enable required extensions
@@ -657,8 +657,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- SECURITY: Only authenticated users can create tenants (prevents anonymous tenant creation)
 GRANT EXECUTE ON FUNCTION public.create_tenant_for_registration(TEXT, TEXT, TEXT, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.create_tenant_for_registration(TEXT, TEXT, TEXT, TEXT) TO anon;
+-- SECURITY: Removed anon grant - anonymous users should not be able to create tenants
 
 -- Set user as host
 CREATE OR REPLACE FUNCTION public.set_user_as_host(
@@ -689,8 +690,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- SECURITY: Only authenticated users can set user as host
 GRANT EXECUTE ON FUNCTION public.set_user_as_host TO authenticated;
-GRANT EXECUTE ON FUNCTION public.set_user_as_host TO anon;
+-- SECURITY: Removed anon grant
 
 -- Admin update tenant (bypasses RLS)
 CREATE OR REPLACE FUNCTION public.admin_update_tenant(
@@ -1114,8 +1116,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- SECURITY: Only authenticated users can check for slip duplicates
 GRANT EXECUTE ON FUNCTION check_slip_duplicate_by_hash TO authenticated;
-GRANT EXECUTE ON FUNCTION check_slip_duplicate_by_hash TO anon;
+-- SECURITY: Removed anon grant - prevents anonymous slip enumeration
 
 -- Get profile for deletion
 CREATE OR REPLACE FUNCTION get_profile_for_deletion(p_user_id UUID, p_tenant_id UUID)
@@ -1604,13 +1607,14 @@ CREATE POLICY "Users can remove from waitlist"
 -- -----------------------------------------------------
 -- VERIFIED SLIPS POLICIES
 -- -----------------------------------------------------
-CREATE POLICY "Anyone can check duplicates" ON verified_slips
-  FOR SELECT USING (true);
+-- SECURITY: Only authenticated users can check for duplicates (prevents info leakage)
+CREATE POLICY "Authenticated users can check duplicates" ON verified_slips
+  FOR SELECT USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Authenticated can insert" ON verified_slips
   FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
-GRANT SELECT ON verified_slips TO anon;
+-- SECURITY: Do NOT grant SELECT to anon - only authenticated users
 GRANT SELECT, INSERT ON verified_slips TO authenticated;
 
 -- -----------------------------------------------------
@@ -2026,6 +2030,59 @@ GROUP BY consent_status, DATE_TRUNC('day', created_at)
 ORDER BY date DESC;
 
 GRANT SELECT ON cookie_consent_stats TO authenticated;
+
+-- =====================================================
+-- SECTION 10: SECURITY HARDENING
+-- =====================================================
+-- Additional security measures applied as of 047_security_hardening.sql
+
+-- -----------------------------------------------------
+-- 10.1 SECURITY HELPER FUNCTION
+-- -----------------------------------------------------
+-- Helper function to verify if a user owns/manages a tenant
+CREATE OR REPLACE FUNCTION public.user_owns_tenant(p_tenant_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+    AND role = 'host'
+    AND tenant_id = p_tenant_id
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- -----------------------------------------------------
+-- 10.2 ADDITIONAL SECURITY INDEXES
+-- -----------------------------------------------------
+-- These indexes improve performance for security-related queries
+
+-- Index for faster role lookups (used in RLS policies)
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+
+-- Index for faster tenant-user association checks
+CREATE INDEX IF NOT EXISTS idx_profiles_tenant_role ON profiles(tenant_id, role);
+
+-- Index for faster blocked user checks
+CREATE INDEX IF NOT EXISTS idx_profiles_is_blocked ON profiles(is_blocked) WHERE is_blocked = true;
+
+-- Index to speed up expired token cleanup
+CREATE INDEX IF NOT EXISTS idx_upload_tokens_expires_at ON upload_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_upload_tokens_user_room ON upload_tokens(user_id, room_id);
+
+-- -----------------------------------------------------
+-- 10.3 AUDIT LOGS SECURITY
+-- -----------------------------------------------------
+-- Ensure audit_logs is only readable by super_admin (already in place)
+-- Drop any overly permissive policies that might exist
+DROP POLICY IF EXISTS "Anyone can insert audit logs" ON audit_logs;
+DROP POLICY IF EXISTS "Authenticated can insert audit logs" ON audit_logs;
+
+-- Super admins can read all audit logs (confirm policy exists)
+DROP POLICY IF EXISTS "Super admins can read audit logs" ON audit_logs;
+CREATE POLICY "Super admins can read audit logs" ON audit_logs
+  FOR SELECT
+  USING (public.is_super_admin());
 
 -- =====================================================
 -- END OF PRODUCTION INITIALIZATION

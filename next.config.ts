@@ -27,11 +27,20 @@ const nextConfig: NextConfig = {
   
   // Security Headers
   async headers() {
+    // Determine if we're in production for stricter headers
+    const isProd = process.env.NODE_ENV === 'production'
+    
     return [
       {
         // Apply security headers to all routes
         source: '/:path*',
         headers: [
+          // HTTP Strict Transport Security (HSTS)
+          // Forces browsers to use HTTPS for 2 years
+          ...(isProd ? [{
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          }] : []),
           // Prevent clickjacking attacks
           {
             key: 'X-Frame-Options',
@@ -58,14 +67,15 @@ const nextConfig: NextConfig = {
             value: 'on',
           },
           // Permissions Policy (formerly Feature-Policy)
+          // Restrict powerful features to same-origin only
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(self), payment=(self)',
+            value: 'camera=(), microphone=(), geolocation=(self), payment=(self), usb=()',
           },
         ],
       },
       {
-        // CORS headers for API routes
+        // CORS headers for API routes - be restrictive in production
         source: '/api/:path*',
         headers: [
           {
@@ -73,8 +83,9 @@ const nextConfig: NextConfig = {
             value: 'true',
           },
           {
+            // In production, only allow same origin; in dev, allow configured URL
             key: 'Access-Control-Allow-Origin',
-            value: process.env.NEXT_PUBLIC_SITE_URL || '*',
+            value: process.env.NEXT_PUBLIC_APP_URL || (isProd ? '' : '*'),
           },
           {
             key: 'Access-Control-Allow-Methods',

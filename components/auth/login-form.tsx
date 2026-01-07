@@ -15,8 +15,12 @@ import { useTranslations } from 'next-intl'
 import { logSecurityEvent, AuditActions } from '@/lib/audit'
 import Link from 'next/link'
 
+import { emailSchema } from '@/lib/validations'
+
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: emailSchema,
+  // Login allows any password length since we're checking against stored hash
+  // but we still require minimum 6 chars to prevent empty/trivial attempts
   password: z.string().min(6, 'Password must be at least 6 characters'),
 })
 

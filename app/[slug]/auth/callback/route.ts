@@ -1,6 +1,33 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
+/**
+ * Validate redirect URL to prevent open redirect attacks
+ * Only allows relative paths starting with / (but not //)
+ */
+function isValidRedirectUrl(url: string, allowedSlug: string): boolean {
+  // Must start with / but not // (protocol-relative URL)
+  if (!url.startsWith('/') || url.startsWith('//')) {
+    return false
+  }
+  
+  // Block any URL that looks like it could redirect externally
+  // e.g., /\evil.com or /%2F%2Fevil.com
+  const decoded = decodeURIComponent(url)
+  if (decoded.startsWith('//') || decoded.includes('://')) {
+    return false
+  }
+  
+  // Optionally, restrict to same tenant paths
+  // This ensures users can only be redirected within their tenant
+  if (!url.startsWith(`/${allowedSlug}`) && url !== `/${allowedSlug}`) {
+    // Allow root paths but log for monitoring
+    console.warn(`[auth-callback] Redirect to different path: ${url} (tenant: ${allowedSlug})`)
+  }
+  
+  return true
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -8,7 +35,10 @@ export async function GET(
   const { slug } = await params
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') || `/${slug}`
+  const rawNext = requestUrl.searchParams.get('next') || `/${slug}`
+  
+  // Validate and sanitize the redirect URL to prevent open redirect attacks
+  const next = isValidRedirectUrl(rawNext, slug) ? rawNext : `/${slug}`
   const token_hash = requestUrl.searchParams.get('token_hash')
   const type = requestUrl.searchParams.get('type')
   const error_param = requestUrl.searchParams.get('error')

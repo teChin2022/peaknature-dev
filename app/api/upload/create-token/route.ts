@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { nanoid } from 'nanoid'
+import { uploadLimiter, getClientIP, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - 20 token creations per minute per IP
+    const clientIP = getClientIP(request.headers)
+    const { success: rateLimitOk, reset } = await uploadLimiter.check(20, `create-token:${clientIP}`)
+    if (!rateLimitOk) {
+      return rateLimitResponse(reset)
+    }
+
     const body = await request.json()
     const { tenantId, roomId, checkIn, checkOut, guests, totalPrice, notes } = body
 

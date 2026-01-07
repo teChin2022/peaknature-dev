@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { TenantSettings, defaultTenantSettings } from '@/types/database'
+import { apiLimiter, getClientIP, rateLimitResponse } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - 30 lock requests per minute per IP
+    const clientIP = getClientIP(request.headers)
+    const { success: rateLimitOk, reset } = await apiLimiter.check(30, `create-lock:${clientIP}`)
+    if (!rateLimitOk) {
+      return rateLimitResponse(reset)
+    }
+
     const body = await request.json()
     const { roomId, checkIn, checkOut, tenantId } = body
 

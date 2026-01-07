@@ -12,23 +12,18 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { getAppBaseUrl } from '@/lib/utils'
 
+import { passwordSchema, emailSchema, fullNameSchema, slugSchema, colorSchema } from '@/lib/validations'
+
 const registerSchema = z.object({
   // User info
-  fullName: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
+  fullName: fullNameSchema,
+  email: emailSchema,
+  password: passwordSchema,
   confirmPassword: z.string(),
   // Property info
   propertyName: z.string().min(2, 'Property name must be at least 2 characters'),
-  propertySlug: z.string()
-    .min(3, 'URL must be at least 3 characters')
-    .max(30, 'URL must be less than 30 characters')
-    .regex(/^[a-z0-9-]+$/, 'URL can only contain lowercase letters, numbers, and hyphens'),
-  primaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid color format'),
+  propertySlug: slugSchema,
+  primaryColor: colorSchema,
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],

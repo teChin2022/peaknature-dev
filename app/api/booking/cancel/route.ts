@@ -69,14 +69,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Cancel booking
-    const { error } = await supabase
+    // Cancel booking - include user_id check for defense in depth
+    const { error, count } = await supabase
       .from('bookings')
       .update({ status: 'cancelled' })
       .eq('id', bookingId)
+      .eq('user_id', user.id)  // SECURITY: Ensure user owns this booking
 
     if (error) {
       return NextResponse.json({ success: false, error: 'Failed to cancel' })
+    }
+    
+    // Verify a row was actually updated
+    if (count === 0) {
+      return NextResponse.json({ success: false, error: 'Booking not found or not authorized' }, { status: 403 })
     }
 
     // Log booking cancellation to audit log
