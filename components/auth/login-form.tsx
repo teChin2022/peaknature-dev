@@ -13,6 +13,7 @@ import { Tenant } from '@/types/database'
 import { OAuthButtons } from './oauth-buttons'
 import { useTranslations } from 'next-intl'
 import { logSecurityEvent, AuditActions } from '@/lib/audit'
+import Link from 'next/link'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -159,7 +160,16 @@ export function LoginForm({ tenant, redirectTo }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">{t('password')}</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">{t('password')}</Label>
+          <Link
+            href={`/${tenant.slug}/forgot-password`}
+            className="text-sm font-medium hover:underline"
+            style={{ color: tenant.primary_color }}
+          >
+            {t('forgotPassword')}
+          </Link>
+        </div>
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
           <Input

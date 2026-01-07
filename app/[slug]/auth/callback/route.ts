@@ -33,8 +33,21 @@ export async function GET(
 
     if (verifyError) {
       console.error('Email verification error:', verifyError)
+      // For recovery type, redirect to forgot-password with error
+      if (type === 'recovery') {
+        return NextResponse.redirect(
+          new URL(`/${slug}/forgot-password?error=${encodeURIComponent('Password reset link has expired or is invalid. Please request a new one.')}`, requestUrl.origin)
+        )
+      }
       return NextResponse.redirect(
         new URL(`/${slug}/login?error=${encodeURIComponent('Email verification failed. Please try again or request a new link.')}`, requestUrl.origin)
+      )
+    }
+
+    // For recovery type, redirect to reset password page
+    if (type === 'recovery') {
+      return NextResponse.redirect(
+        new URL(`/${slug}/reset-password`, requestUrl.origin)
       )
     }
 
