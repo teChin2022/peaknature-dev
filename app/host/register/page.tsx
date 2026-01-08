@@ -57,19 +57,6 @@ export default function HostRegisterPage() {
     setError(null)
 
     try {
-      // Check if slug is already taken
-      const { data: existingTenant } = await supabase
-        .from('tenants')
-        .select('id')
-        .eq('slug', data.propertySlug)
-        .single()
-
-      if (existingTenant) {
-        setError('This property URL is already taken. Please choose another.')
-        setIsLoading(false)
-        return
-      }
-
       // Check if email already exists before attempting registration
       try {
         const emailCheckResponse = await fetch('/api/user/check-email', {
@@ -130,46 +117,27 @@ export default function HostRegisterPage() {
       }
 
       if (authData.user) {
-        // Create tenant using RPC function (bypasses RLS)
-        const { data: tenantData, error: tenantError } = await supabase.rpc('create_tenant_for_registration', {
-          p_name: data.propertyName,
-          p_slug: data.propertySlug,
-          p_primary_color: data.primaryColor,
-        })
-
-        if (tenantError) {
-          setError(`Failed to create property: ${tenantError.message}`)
-          return
-        }
-
-        // Wait a moment for the trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        // Set user as host with tenant_id
-        const { error: profileError } = await supabase.rpc('set_user_as_host', {
-          p_user_id: authData.user.id,
-          p_tenant_id: tenantData,
-          p_full_name: data.fullName,
-        })
-
-        if (profileError) {
-          console.error('Profile update error:', profileError)
-          // Don't fail the whole process, the profile can be fixed later
-        }
-
-        // Send LINE notification to admin (don't await, fire and forget)
-        fetch('/api/admin/notify', {
+        // Use API route to create tenant and set up host profile
+        // This uses service role to bypass RLS restrictions
+        const registerResponse = await fetch('/api/host/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'new_tenant',
-            data: {
-              tenantName: data.propertyName,
-              tenantEmail: data.email,
-              tenantSlug: data.propertySlug,
-            }
-          })
-        }).catch(err => console.error('Failed to send notification:', err))
+            userId: authData.user.id,
+            fullName: data.fullName,
+            propertyName: data.propertyName,
+            propertySlug: data.propertySlug,
+            primaryColor: data.primaryColor,
+          }),
+        })
+
+        const registerResult = await registerResponse.json()
+
+        if (!registerResponse.ok || !registerResult.success) {
+          // Registration failed - show error to user
+          setError(registerResult.error || 'Failed to register property. Please try again.')
+          return
+        }
 
         setSuccess(true)
       }

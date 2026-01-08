@@ -168,6 +168,23 @@ function HostLoginContent() {
             actualRole: profile?.role,
             context: 'host_login'
           })
+          
+          // Check if user might have a registration issue
+          // (profile is guest but might have registered as host)
+          if (profile?.role === 'guest') {
+            // Try to find if there's a tenant with their email
+            const { data: tenants } = await supabase
+              .from('tenants')
+              .select('id, name, slug, is_active')
+              .limit(1)
+            
+            // If user registered but profile wasn't properly set up
+            // they need to contact support or re-register
+            await supabase.auth.signOut()
+            setError('Your host profile was not set up correctly during registration. Please contact support or try registering again with a different email.')
+            return
+          }
+          
           await supabase.auth.signOut()
           setError('This login is for property hosts only. Guests should login at the property page.')
           return
