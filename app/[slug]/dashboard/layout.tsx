@@ -10,7 +10,6 @@ import { SubscriptionBanner } from '@/components/dashboard/subscription-banner'
 
 // Force dynamic rendering for dashboard
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 interface DashboardLayoutProps {
   children: React.ReactNode

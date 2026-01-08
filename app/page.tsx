@@ -11,7 +11,6 @@ import { FooterCookieSettings } from '@/components/landing/footer-cookie-setting
 
 // Force dynamic rendering to always fetch fresh data
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 interface LandingStats {
   propertiesCount: number
