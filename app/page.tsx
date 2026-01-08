@@ -16,6 +16,7 @@ interface LandingStats {
   propertiesCount: number
   bookingsCount: number
   usersCount: number
+  averageRating: number | null
 }
 
 interface PlatformConfig {
@@ -35,17 +36,26 @@ async function getLandingData(): Promise<{ stats: LandingStats; config: Platform
       .limit(1)
 
     // Fetch real stats
-    const [tenantsResult, bookingsResult, usersResult] = await Promise.all([
+    const [tenantsResult, bookingsResult, usersResult, reviewsResult] = await Promise.all([
       supabase.from('tenants').select('id', { count: 'exact', head: true }).eq('is_active', true),
       supabase.from('bookings').select('id', { count: 'exact', head: true }),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'guest'),
+      supabase.from('reviews').select('rating'),
     ])
+
+    // Calculate average rating
+    let averageRating: number | null = null
+    if (reviewsResult.data && reviewsResult.data.length > 0) {
+      const totalRating = reviewsResult.data.reduce((sum, review) => sum + review.rating, 0)
+      averageRating = totalRating / reviewsResult.data.length
+    }
 
     return {
       stats: {
         propertiesCount: tenantsResult.count || 0,
         bookingsCount: bookingsResult.count || 0,
         usersCount: usersResult.count || 0,
+        averageRating,
       },
       config: {
         platformName: settings?.[0]?.platform_name || 'Homestay',
@@ -59,6 +69,7 @@ async function getLandingData(): Promise<{ stats: LandingStats; config: Platform
         propertiesCount: 0,
         bookingsCount: 0,
         usersCount: 0,
+        averageRating: null,
       },
       config: {
         platformName: 'Homestay',
@@ -304,8 +315,10 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <div className="text-sm text-slate-600">{t.stats.happyGuests}</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl sm:text-4xl font-bold text-blue-600 mb-1">24/7</div>
-              <div className="text-sm text-slate-600">{t.stats.supportAvailable}</div>
+              <div className="text-3xl sm:text-4xl font-bold text-blue-600 mb-1">
+                {stats.averageRating !== null ? `${stats.averageRating.toFixed(1)}★` : '—'}
+              </div>
+              <div className="text-sm text-slate-600">{t.stats.averageRating}</div>
             </div>
           </div>
         </div>
