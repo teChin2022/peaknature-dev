@@ -5,7 +5,13 @@
 -- for fresh production deployments.
 -- 
 -- Generated: 2026-01-08
+-- Last Review: 2026-01-08 (SEO + idempotent policies)
 -- Last Migration: 047_security_hardening.sql
+-- 
+-- CHANGES IN THIS REVIEW:
+-- - Added 'awaiting_payment' status to booking conflict checks
+-- - Made all policies idempotent with DROP POLICY IF EXISTS
+-- - Fixed booking update/delete policies for awaiting_payment status
 -- =====================================================
 
 -- Enable required extensions
@@ -555,7 +561,7 @@ BEGIN
   SELECT EXISTS (
     SELECT 1 FROM bookings
     WHERE room_id = p_room_id
-      AND status NOT IN ('cancelled')
+      AND status IN ('pending', 'awaiting_payment', 'confirmed')
       AND (p_exclude_booking_id IS NULL OR id != p_exclude_booking_id)
       AND (check_in, check_out) OVERLAPS (p_check_in, p_check_out)
   ) INTO conflict_exists;
@@ -592,12 +598,12 @@ RETURNS TRIGGER AS $$
 DECLARE
   overlap_count INTEGER;
 BEGIN
-  IF NEW.status IN ('pending', 'confirmed') THEN
+  IF NEW.status IN ('pending', 'awaiting_payment', 'confirmed') THEN
     SELECT COUNT(*) INTO overlap_count
     FROM bookings
     WHERE room_id = NEW.room_id
       AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::UUID)
-      AND status IN ('pending', 'confirmed')
+      AND status IN ('pending', 'awaiting_payment', 'confirmed')
       AND check_in < NEW.check_out
       AND check_out > NEW.check_in;
     
@@ -629,7 +635,7 @@ BEGIN
     b.check_out
   FROM public.bookings b
   WHERE b.room_id = p_room_id
-    AND b.status IN ('pending', 'confirmed')
+    AND b.status IN ('pending', 'awaiting_payment', 'confirmed')
     AND b.check_out >= CURRENT_DATE
   ORDER BY b.check_in;
 END;
@@ -1344,18 +1350,22 @@ ALTER TABLE cookie_consent_logs ENABLE ROW LEVEL SECURITY;
 -- -----------------------------------------------------
 -- TENANTS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "tenants_select_active" ON tenants;
 CREATE POLICY "tenants_select_active"
   ON tenants FOR SELECT
   USING (is_active = true);
 
+DROP POLICY IF EXISTS "tenants_select_own" ON tenants;
 CREATE POLICY "tenants_select_own"
   ON tenants FOR SELECT
   USING (id = public.get_my_tenant_id());
 
+DROP POLICY IF EXISTS "tenants_update_host" ON tenants;
 CREATE POLICY "tenants_update_host"
   ON tenants FOR UPDATE
   USING (public.is_host() AND id = public.get_my_tenant_id());
 
+DROP POLICY IF EXISTS "tenants_all_super_admin" ON tenants;
 CREATE POLICY "tenants_all_super_admin"
   ON tenants FOR ALL
   USING (public.is_super_admin())
@@ -1364,28 +1374,34 @@ CREATE POLICY "tenants_all_super_admin"
 -- -----------------------------------------------------
 -- PROFILES POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "profiles_select_own" ON profiles;
 CREATE POLICY "profiles_select_own"
   ON profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "profiles_update_own" ON profiles;
 CREATE POLICY "profiles_update_own"
   ON profiles FOR UPDATE
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "profiles_insert_own" ON profiles;
 CREATE POLICY "profiles_insert_own"
   ON profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "profiles_select_super_admin" ON profiles;
 CREATE POLICY "profiles_select_super_admin"
   ON profiles FOR SELECT
   USING (public.is_super_admin());
 
+DROP POLICY IF EXISTS "profiles_all_super_admin" ON profiles;
 CREATE POLICY "profiles_all_super_admin"
   ON profiles FOR ALL
   USING (public.is_super_admin())
   WITH CHECK (public.is_super_admin());
 
+DROP POLICY IF EXISTS "profiles_select_host_guests" ON profiles;
 CREATE POLICY "profiles_select_host_guests"
   ON profiles FOR SELECT
   USING (
@@ -1404,18 +1420,22 @@ CREATE POLICY "profiles_select_host_guests"
 -- -----------------------------------------------------
 -- ROOMS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "rooms_select_active" ON rooms;
 CREATE POLICY "rooms_select_active"
   ON rooms FOR SELECT
   USING (is_active = true);
 
+DROP POLICY IF EXISTS "rooms_select_host" ON rooms;
 CREATE POLICY "rooms_select_host"
   ON rooms FOR SELECT
   USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
 
+DROP POLICY IF EXISTS "rooms_all_host" ON rooms;
 CREATE POLICY "rooms_all_host"
   ON rooms FOR ALL
   USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
 
+DROP POLICY IF EXISTS "rooms_all_super_admin" ON rooms;
 CREATE POLICY "rooms_all_super_admin"
   ON rooms FOR ALL
   USING (public.is_super_admin());
@@ -1423,31 +1443,38 @@ CREATE POLICY "rooms_all_super_admin"
 -- -----------------------------------------------------
 -- BOOKINGS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "bookings_select_own" ON bookings;
 CREATE POLICY "bookings_select_own"
   ON bookings FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "bookings_insert_own" ON bookings;
 CREATE POLICY "bookings_insert_own"
   ON bookings FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "bookings_update_own" ON bookings;
 CREATE POLICY "bookings_update_own"
   ON bookings FOR UPDATE
-  USING (auth.uid() = user_id AND status = 'pending')
+  USING (auth.uid() = user_id AND status IN ('pending', 'awaiting_payment'))
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "bookings_delete_own_pending" ON bookings;
 CREATE POLICY "bookings_delete_own_pending"
   ON bookings FOR DELETE
-  USING (auth.uid() = user_id AND status = 'pending');
+  USING (auth.uid() = user_id AND status IN ('pending', 'awaiting_payment'));
 
+DROP POLICY IF EXISTS "bookings_select_host" ON bookings;
 CREATE POLICY "bookings_select_host"
   ON bookings FOR SELECT
   USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
 
+DROP POLICY IF EXISTS "bookings_update_host" ON bookings;
 CREATE POLICY "bookings_update_host"
   ON bookings FOR UPDATE
   USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
 
+DROP POLICY IF EXISTS "bookings_all_super_admin" ON bookings;
 CREATE POLICY "bookings_all_super_admin"
   ON bookings FOR ALL
   USING (public.is_super_admin());
@@ -1455,10 +1482,12 @@ CREATE POLICY "bookings_all_super_admin"
 -- -----------------------------------------------------
 -- ROOM AVAILABILITY POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "room_availability_select_all" ON room_availability;
 CREATE POLICY "room_availability_select_all"
   ON room_availability FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "room_availability_select_host" ON room_availability;
 CREATE POLICY "room_availability_select_host"
   ON room_availability FOR SELECT
   USING (
@@ -1470,6 +1499,7 @@ CREATE POLICY "room_availability_select_host"
     )
   );
 
+DROP POLICY IF EXISTS "room_availability_insert_host" ON room_availability;
 CREATE POLICY "room_availability_insert_host"
   ON room_availability FOR INSERT
   WITH CHECK (
@@ -1481,6 +1511,7 @@ CREATE POLICY "room_availability_insert_host"
     )
   );
 
+DROP POLICY IF EXISTS "room_availability_update_host" ON room_availability;
 CREATE POLICY "room_availability_update_host"
   ON room_availability FOR UPDATE
   USING (
@@ -1500,6 +1531,7 @@ CREATE POLICY "room_availability_update_host"
     )
   );
 
+DROP POLICY IF EXISTS "room_availability_delete_host" ON room_availability;
 CREATE POLICY "room_availability_delete_host"
   ON room_availability FOR DELETE
   USING (
@@ -1511,6 +1543,7 @@ CREATE POLICY "room_availability_delete_host"
     )
   );
 
+DROP POLICY IF EXISTS "room_availability_all_super_admin" ON room_availability;
 CREATE POLICY "room_availability_all_super_admin"
   ON room_availability FOR ALL
   USING (public.is_super_admin());
@@ -1518,10 +1551,12 @@ CREATE POLICY "room_availability_all_super_admin"
 -- -----------------------------------------------------
 -- REVIEWS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "reviews_select_all" ON reviews;
 CREATE POLICY "reviews_select_all"
   ON reviews FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "reviews_insert_own" ON reviews;
 CREATE POLICY "reviews_insert_own"
   ON reviews FOR INSERT
   WITH CHECK (
@@ -1538,15 +1573,18 @@ CREATE POLICY "reviews_insert_own"
     )
   );
 
+DROP POLICY IF EXISTS "reviews_update_own" ON reviews;
 CREATE POLICY "reviews_update_own"
   ON reviews FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "reviews_delete_own" ON reviews;
 CREATE POLICY "reviews_delete_own"
   ON reviews FOR DELETE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "reviews_all_super_admin" ON reviews;
 CREATE POLICY "reviews_all_super_admin"
   ON reviews FOR ALL
   USING (public.is_super_admin());
@@ -1554,19 +1592,23 @@ CREATE POLICY "reviews_all_super_admin"
 -- -----------------------------------------------------
 -- RESERVATION LOCKS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "Anyone can view all locks" ON reservation_locks;
 CREATE POLICY "Anyone can view all locks"
   ON reservation_locks FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Users can create their own locks" ON reservation_locks;
 CREATE POLICY "Users can create their own locks"
   ON reservation_locks FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own locks" ON reservation_locks;
 CREATE POLICY "Users can update their own locks"
   ON reservation_locks FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own or expired locks" ON reservation_locks;
 CREATE POLICY "Users can delete own or expired locks"
   ON reservation_locks FOR DELETE
   USING (auth.uid() = user_id OR expires_at < NOW());
@@ -1578,6 +1620,7 @@ GRANT INSERT, UPDATE, DELETE ON reservation_locks TO authenticated;
 -- -----------------------------------------------------
 -- NOTIFICATION QUEUE POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "Hosts can view tenant notifications" ON notification_queue;
 CREATE POLICY "Hosts can view tenant notifications"
   ON notification_queue FOR SELECT
   USING (
@@ -1592,14 +1635,17 @@ CREATE POLICY "Hosts can view tenant notifications"
 -- -----------------------------------------------------
 -- DATE WAITLIST POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "Users can view their waitlist entries" ON date_waitlist;
 CREATE POLICY "Users can view their waitlist entries"
   ON date_waitlist FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can add to waitlist" ON date_waitlist;
 CREATE POLICY "Users can add to waitlist"
   ON date_waitlist FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can remove from waitlist" ON date_waitlist;
 CREATE POLICY "Users can remove from waitlist"
   ON date_waitlist FOR DELETE
   USING (auth.uid() = user_id);
@@ -1608,9 +1654,11 @@ CREATE POLICY "Users can remove from waitlist"
 -- VERIFIED SLIPS POLICIES
 -- -----------------------------------------------------
 -- SECURITY: Only authenticated users can check for duplicates (prevents info leakage)
+DROP POLICY IF EXISTS "Authenticated users can check duplicates" ON verified_slips;
 CREATE POLICY "Authenticated users can check duplicates" ON verified_slips
   FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Authenticated can insert" ON verified_slips;
 CREATE POLICY "Authenticated can insert" ON verified_slips
   FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
@@ -1620,27 +1668,33 @@ GRANT SELECT, INSERT ON verified_slips TO authenticated;
 -- -----------------------------------------------------
 -- UPLOAD TOKENS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "upload_tokens_select_own" ON upload_tokens;
 CREATE POLICY "upload_tokens_select_own"
   ON upload_tokens FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "upload_tokens_insert_own" ON upload_tokens;
 CREATE POLICY "upload_tokens_insert_own"
   ON upload_tokens FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "upload_tokens_update_own" ON upload_tokens;
 CREATE POLICY "upload_tokens_update_own"
   ON upload_tokens FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "upload_tokens_delete_own" ON upload_tokens;
 CREATE POLICY "upload_tokens_delete_own"
   ON upload_tokens FOR DELETE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "upload_tokens_select_by_token" ON upload_tokens;
 CREATE POLICY "upload_tokens_select_by_token"
   ON upload_tokens FOR SELECT
   TO anon
   USING (token IS NOT NULL AND expires_at > NOW());
 
+DROP POLICY IF EXISTS "upload_tokens_update_by_token" ON upload_tokens;
 CREATE POLICY "upload_tokens_update_by_token"
   ON upload_tokens FOR UPDATE
   TO anon
@@ -1649,19 +1703,23 @@ CREATE POLICY "upload_tokens_update_by_token"
 -- -----------------------------------------------------
 -- PLATFORM SETTINGS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "platform_settings_select_super_admin" ON platform_settings;
 CREATE POLICY "platform_settings_select_super_admin"
   ON platform_settings FOR SELECT
   USING (public.is_super_admin());
 
+DROP POLICY IF EXISTS "platform_settings_insert_super_admin" ON platform_settings;
 CREATE POLICY "platform_settings_insert_super_admin"
   ON platform_settings FOR INSERT
   WITH CHECK (public.is_super_admin());
 
+DROP POLICY IF EXISTS "platform_settings_update_super_admin" ON platform_settings;
 CREATE POLICY "platform_settings_update_super_admin"
   ON platform_settings FOR UPDATE
   USING (public.is_super_admin())
   WITH CHECK (public.is_super_admin());
 
+DROP POLICY IF EXISTS "platform_settings_public_read" ON platform_settings;
 CREATE POLICY "platform_settings_public_read"
   ON platform_settings FOR SELECT
   USING (true);
@@ -1669,6 +1727,7 @@ CREATE POLICY "platform_settings_public_read"
 -- -----------------------------------------------------
 -- SUBSCRIPTION PAYMENTS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "subscription_payments_select_host" ON subscription_payments;
 CREATE POLICY "subscription_payments_select_host"
   ON subscription_payments FOR SELECT
   USING (
@@ -1676,6 +1735,7 @@ CREATE POLICY "subscription_payments_select_host"
     OR public.is_super_admin()
   );
 
+DROP POLICY IF EXISTS "subscription_payments_insert_host" ON subscription_payments;
 CREATE POLICY "subscription_payments_insert_host"
   ON subscription_payments FOR INSERT
   WITH CHECK (
@@ -1683,6 +1743,7 @@ CREATE POLICY "subscription_payments_insert_host"
     OR public.is_super_admin()
   );
 
+DROP POLICY IF EXISTS "subscription_payments_all_super_admin" ON subscription_payments;
 CREATE POLICY "subscription_payments_all_super_admin"
   ON subscription_payments FOR ALL
   USING (public.is_super_admin());
@@ -1690,10 +1751,12 @@ CREATE POLICY "subscription_payments_all_super_admin"
 -- -----------------------------------------------------
 -- PLAN FEATURES POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "plan_features_select_all" ON plan_features;
 CREATE POLICY "plan_features_select_all"
   ON plan_features FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "plan_features_all_super_admin" ON plan_features;
 CREATE POLICY "plan_features_all_super_admin"
   ON plan_features FOR ALL
   USING (public.is_super_admin());
@@ -1701,14 +1764,17 @@ CREATE POLICY "plan_features_all_super_admin"
 -- -----------------------------------------------------
 -- COOKIE CONSENT LOGS POLICIES
 -- -----------------------------------------------------
+DROP POLICY IF EXISTS "cookie_consent_logs_select_super_admin" ON cookie_consent_logs;
 CREATE POLICY "cookie_consent_logs_select_super_admin" 
   ON cookie_consent_logs FOR SELECT 
   USING (public.is_super_admin());
 
+DROP POLICY IF EXISTS "cookie_consent_logs_insert_public" ON cookie_consent_logs;
 CREATE POLICY "cookie_consent_logs_insert_public" 
   ON cookie_consent_logs FOR INSERT 
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "cookie_consent_logs_delete_super_admin" ON cookie_consent_logs;
 CREATE POLICY "cookie_consent_logs_delete_super_admin" 
   ON cookie_consent_logs FOR DELETE 
   USING (public.is_super_admin());
@@ -1783,10 +1849,12 @@ ON CONFLICT (id) DO NOTHING;
 -- =====================================================
 
 -- Tenants bucket policies
+DROP POLICY IF EXISTS "Public can view tenant files" ON storage.objects;
 CREATE POLICY "Public can view tenant files"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'tenants');
 
+DROP POLICY IF EXISTS "Hosts can upload to tenants" ON storage.objects;
 CREATE POLICY "Hosts can upload to tenants"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -1794,6 +1862,7 @@ CREATE POLICY "Hosts can upload to tenants"
     AND (public.is_host() OR public.is_super_admin())
   );
 
+DROP POLICY IF EXISTS "Hosts can update tenant files" ON storage.objects;
 CREATE POLICY "Hosts can update tenant files"
   ON storage.objects FOR UPDATE
   USING (
@@ -1801,6 +1870,7 @@ CREATE POLICY "Hosts can update tenant files"
     AND (public.is_host() OR public.is_super_admin())
   );
 
+DROP POLICY IF EXISTS "Hosts can delete tenant files" ON storage.objects;
 CREATE POLICY "Hosts can delete tenant files"
   ON storage.objects FOR DELETE
   USING (
@@ -1809,27 +1879,33 @@ CREATE POLICY "Hosts can delete tenant files"
   );
 
 -- Bookings bucket policies
+DROP POLICY IF EXISTS "Public can view booking files" ON storage.objects;
 CREATE POLICY "Public can view booking files"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'bookings');
 
+DROP POLICY IF EXISTS "Authenticated users can upload payment slips" ON storage.objects;
 CREATE POLICY "Authenticated users can upload payment slips"
   ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'bookings' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Authenticated users can update booking files" ON storage.objects;
 CREATE POLICY "Authenticated users can update booking files"
   ON storage.objects FOR UPDATE
   USING (bucket_id = 'bookings' AND auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Authenticated users can delete booking files" ON storage.objects;
 CREATE POLICY "Authenticated users can delete booking files"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'bookings' AND auth.role() = 'authenticated');
 
 -- Rooms bucket policies
+DROP POLICY IF EXISTS "Public can view room images" ON storage.objects;
 CREATE POLICY "Public can view room images"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'rooms');
 
+DROP POLICY IF EXISTS "Hosts can upload room images" ON storage.objects;
 CREATE POLICY "Hosts can upload room images"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -1837,6 +1913,7 @@ CREATE POLICY "Hosts can upload room images"
     AND (public.is_host() OR public.is_super_admin())
   );
 
+DROP POLICY IF EXISTS "Hosts can update room images" ON storage.objects;
 CREATE POLICY "Hosts can update room images"
   ON storage.objects FOR UPDATE
   USING (
@@ -1844,6 +1921,7 @@ CREATE POLICY "Hosts can update room images"
     AND (public.is_host() OR public.is_super_admin())
   );
 
+DROP POLICY IF EXISTS "Hosts can delete room images" ON storage.objects;
 CREATE POLICY "Hosts can delete room images"
   ON storage.objects FOR DELETE
   USING (
@@ -1852,10 +1930,12 @@ CREATE POLICY "Hosts can delete room images"
   );
 
 -- PromptPay QR policies
+DROP POLICY IF EXISTS "promptpay_qr_select_public" ON storage.objects;
 CREATE POLICY "promptpay_qr_select_public"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'promptpay-qr');
 
+DROP POLICY IF EXISTS "promptpay_qr_insert_super_admin" ON storage.objects;
 CREATE POLICY "promptpay_qr_insert_super_admin"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -1863,6 +1943,7 @@ CREATE POLICY "promptpay_qr_insert_super_admin"
     AND public.is_super_admin()
   );
 
+DROP POLICY IF EXISTS "promptpay_qr_update_super_admin" ON storage.objects;
 CREATE POLICY "promptpay_qr_update_super_admin"
   ON storage.objects FOR UPDATE
   USING (
@@ -1870,6 +1951,7 @@ CREATE POLICY "promptpay_qr_update_super_admin"
     AND public.is_super_admin()
   );
 
+DROP POLICY IF EXISTS "promptpay_qr_delete_super_admin" ON storage.objects;
 CREATE POLICY "promptpay_qr_delete_super_admin"
   ON storage.objects FOR DELETE
   USING (
@@ -1878,10 +1960,12 @@ CREATE POLICY "promptpay_qr_delete_super_admin"
   );
 
 -- Subscription proofs policies
+DROP POLICY IF EXISTS "subscription_proofs_select_public" ON storage.objects;
 CREATE POLICY "subscription_proofs_select_public"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'subscription-proofs');
 
+DROP POLICY IF EXISTS "subscription_proofs_insert_host" ON storage.objects;
 CREATE POLICY "subscription_proofs_insert_host"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -1889,6 +1973,7 @@ CREATE POLICY "subscription_proofs_insert_host"
     AND auth.role() = 'authenticated'
   );
 
+DROP POLICY IF EXISTS "subscription_proofs_update_host" ON storage.objects;
 CREATE POLICY "subscription_proofs_update_host"
   ON storage.objects FOR UPDATE
   USING (
@@ -1896,6 +1981,7 @@ CREATE POLICY "subscription_proofs_update_host"
     AND auth.role() = 'authenticated'
   );
 
+DROP POLICY IF EXISTS "subscription_proofs_delete_super_admin" ON storage.objects;
 CREATE POLICY "subscription_proofs_delete_super_admin"
   ON storage.objects FOR DELETE
   USING (
@@ -1956,11 +2042,13 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_severity ON audit_logs(severity);
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Only super_admin can view audit logs
+DROP POLICY IF EXISTS "audit_logs_select_super_admin" ON audit_logs;
 CREATE POLICY "audit_logs_select_super_admin"
   ON audit_logs FOR SELECT
   USING (public.is_super_admin());
 
 -- Service role can insert (for API routes)
+DROP POLICY IF EXISTS "audit_logs_insert_service_role" ON audit_logs;
 CREATE POLICY "audit_logs_insert_service_role"
   ON audit_logs FOR INSERT
   WITH CHECK (true);
