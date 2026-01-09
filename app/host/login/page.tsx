@@ -140,7 +140,6 @@ function HostLoginContent() {
     for (let i = 0; i < maxAttempts; i++) {
       const { data } = await supabase.auth.getUser()
       if (data.user) {
-        console.log(`[Host Login] Session found after ${i + 1} attempts`)
         return { user: { id: data.user.id, email_confirmed_at: data.user.email_confirmed_at ?? null } }
       }
       await new Promise(resolve => setTimeout(resolve, intervalMs))
@@ -153,8 +152,6 @@ function HostLoginContent() {
     setError(null)
 
     try {
-      console.log('[Host Login] Starting sign in...')
-      
       // WORKAROUND: The signInWithPassword Promise may hang in production
       // even though the network request completes with 200 OK.
       // We use Promise.race with a shorter timeout, and if it times out,
@@ -184,8 +181,6 @@ function HostLoginContent() {
       } catch (timeoutError) {
         // signInWithPassword Promise hung, but the network request may have succeeded
         // Poll for session instead
-        console.log('[Host Login] signInWithPassword hung, polling for session...')
-        
         const sessionResult = await waitForSession()
         if (sessionResult?.user) {
           authUser = sessionResult.user
@@ -206,8 +201,6 @@ function HostLoginContent() {
       }
 
       if (authUser) {
-        console.log('[Host Login] Sign in successful, verifying session...')
-        
         // Double-check session is established
         const { data: sessionData, error: sessionError } = await withTimeout(
           supabase.auth.getUser(),
@@ -216,13 +209,10 @@ function HostLoginContent() {
         )
 
         if (sessionError || !sessionData.user) {
-          console.error('[Host Login] Session verification failed:', sessionError)
           await supabase.auth.signOut()
           setError('Login succeeded but session could not be verified. Please try again.')
           return
         }
-
-        console.log('[Host Login] Session verified, fetching profile with tenant...')
 
         // OPTIMIZED: Single query to fetch profile AND tenant together
         // This eliminates a waterfall by combining 2 sequential queries into 1
@@ -250,11 +240,8 @@ function HostLoginContent() {
           'Profile and tenant fetch'
         )
 
-        console.log('[Host Login] Profile+Tenant result:', { profile, error: profileError?.message })
-
         // Handle profile not found
         if (profileError || !profile) {
-          console.error('[Host Login] Profile not found:', profileError)
           await supabase.auth.signOut()
           setError('Profile not found. Your registration may not have completed properly. Please try registering again.')
           return
@@ -301,10 +288,7 @@ function HostLoginContent() {
         // Extract tenant from the joined query result
         const tenant = profile.tenant as { slug: string; is_active: boolean } | null
 
-        console.log('[Host Login] Tenant data:', tenant)
-
         if (!tenant) {
-          console.error('[Host Login] Tenant not found in joined result')
           await supabase.auth.signOut()
           setError('Property not found. Please contact support.')
           return
@@ -316,8 +300,6 @@ function HostLoginContent() {
           return
         }
 
-        console.log('[Host Login] Success! Redirecting to dashboard...')
-
         // Navigate to dashboard
         setIsLoading(false)
         router.push(`/${tenant.slug}/dashboard`)
@@ -325,7 +307,6 @@ function HostLoginContent() {
         return
       }
     } catch (err) {
-      console.error('[Host Login] Unexpected error:', err)
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
       
       // Handle timeout errors specifically

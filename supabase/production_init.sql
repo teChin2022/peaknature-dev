@@ -1393,7 +1393,24 @@ CREATE POLICY "tenants_select_host_own"
 DROP POLICY IF EXISTS "tenants_update_host" ON tenants;
 CREATE POLICY "tenants_update_host"
   ON tenants FOR UPDATE
-  USING (public.is_host() AND id = public.get_my_tenant_id());
+  USING (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = tenants.id
+    )
+  )
+  WITH CHECK (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = tenants.id
+    )
+  );
 
 DROP POLICY IF EXISTS "tenants_all_super_admin" ON tenants;
 CREATE POLICY "tenants_all_super_admin"
@@ -1458,12 +1475,37 @@ CREATE POLICY "rooms_select_active"
 DROP POLICY IF EXISTS "rooms_select_host" ON rooms;
 CREATE POLICY "rooms_select_host"
   ON rooms FOR SELECT
-  USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
+  USING (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = rooms.tenant_id
+    )
+  );
 
 DROP POLICY IF EXISTS "rooms_all_host" ON rooms;
 CREATE POLICY "rooms_all_host"
   ON rooms FOR ALL
-  USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
+  USING (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = rooms.tenant_id
+    )
+  )
+  WITH CHECK (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = rooms.tenant_id
+    )
+  );
 
 DROP POLICY IF EXISTS "rooms_all_super_admin" ON rooms;
 CREATE POLICY "rooms_all_super_admin"
@@ -1497,12 +1539,37 @@ CREATE POLICY "bookings_delete_own_pending"
 DROP POLICY IF EXISTS "bookings_select_host" ON bookings;
 CREATE POLICY "bookings_select_host"
   ON bookings FOR SELECT
-  USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
+  USING (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = bookings.tenant_id
+    )
+  );
 
 DROP POLICY IF EXISTS "bookings_update_host" ON bookings;
 CREATE POLICY "bookings_update_host"
   ON bookings FOR UPDATE
-  USING (public.is_host() AND tenant_id = public.get_my_tenant_id());
+  USING (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = bookings.tenant_id
+    )
+  )
+  WITH CHECK (
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = bookings.tenant_id
+    )
+  );
 
 DROP POLICY IF EXISTS "bookings_all_super_admin" ON bookings;
 CREATE POLICY "bookings_all_super_admin"
