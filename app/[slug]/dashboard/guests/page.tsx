@@ -43,42 +43,48 @@ async function getGuestsData(slug: string) {
   const tenantId = tenantData.id
   const primaryColor = tenantData.primary_color || '#000000'
 
-  // Get all guests using RPC function (bypasses RLS with proper authorization)
+  // OPTIMIZED: Fetch guests and all bookings in parallel
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profiles, error } = await (supabase.rpc as any)('get_tenant_guests', { p_tenant_id: tenantId })
+  const [profilesResult, bookingsResult] = await Promise.all([
+    (supabase.rpc as any)('get_tenant_guests', { p_tenant_id: tenantId }),
+    supabase
+      .from('bookings')
+      .select('user_id, created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+  ])
 
-  if (error) {
-    console.error('Error fetching guests:', error)
+  if (profilesResult.error) {
+    console.error('Error fetching guests:', profilesResult.error)
     return { guests: [], tenantId, primaryColor }
   }
 
+  const profiles = profilesResult.data as GuestProfile[] | null
   if (!profiles || profiles.length === 0) return { guests: [], tenantId, primaryColor }
 
-  // Get booking counts for each guest
-  const guestData = await Promise.all(
-    (profiles as GuestProfile[]).map(async (profile) => {
-      const { count } = await supabase
-        .from('bookings')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', profile.id)
-        .eq('tenant_id', tenantId)
+  const bookings = bookingsResult.data || []
 
-      const { data: lastBooking } = await supabase
-        .from('bookings')
-        .select('created_at')
-        .eq('user_id', profile.id)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
+  // OPTIMIZED: Calculate booking stats in memory instead of N+1 queries
+  // Group bookings by user_id
+  const bookingsByUser = bookings.reduce((acc, booking) => {
+    const userId = booking.user_id
+    if (!acc[userId]) {
+      acc[userId] = { count: 0, lastBooking: null as string | null }
+    }
+    acc[userId].count++
+    // First booking in the sorted list is the most recent
+    if (!acc[userId].lastBooking) {
+      acc[userId].lastBooking = booking.created_at
+    }
+    return acc
+  }, {} as Record<string, { count: number; lastBooking: string | null }>)
 
-      return {
-        profile,
-        bookingCount: count || 0,
-        lastBooking: (lastBooking as { created_at: string } | null)?.created_at || null
-      }
-    })
-  )
+  // Map profiles with their booking stats
+  const guestData = profiles.map((profile) => ({
+    profile,
+    bookingCount: bookingsByUser[profile.id]?.count || 0,
+    lastBooking: bookingsByUser[profile.id]?.lastBooking || null
+  }))
 
   return { guests: guestData, tenantId, primaryColor }
 }

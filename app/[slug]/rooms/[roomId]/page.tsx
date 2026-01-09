@@ -90,46 +90,42 @@ async function getRoomWithTenant(slug: string, roomId: string) {
   
   if (!tenant) return null
 
-  const { data: room } = await supabase
-    .from('rooms')
-    .select('*')
-    .eq('id', roomId)
-    .eq('tenant_id', tenant.id)
-    .eq('is_active', true)
-    .single()
-  
+  // OPTIMIZED: Fetch room, blocked dates, bookings, and reviews in parallel
+  const [roomResult, blockedDatesResult, bookingsResult, reviewsResult] = await Promise.all([
+    supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .eq('tenant_id', tenant.id)
+      .eq('is_active', true)
+      .single(),
+    supabase
+      .from('room_availability')
+      .select('date')
+      .eq('room_id', roomId)
+      .eq('is_blocked', true)
+      .gte('date', new Date().toISOString().split('T')[0]),
+    supabase.rpc('get_room_booked_dates', { p_room_id: roomId }),
+    supabase
+      .from('reviews')
+      .select(`
+        id,
+        rating,
+        comment,
+        created_at,
+        booking:bookings!inner(room_id),
+        user:profiles(full_name, avatar_url)
+      `)
+      .eq('booking.room_id', roomId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+  ])
+
+  const room = roomResult.data
   if (!room) return null
 
-  // Get blocked dates for this room
-  const { data: blockedDates } = await supabase
-    .from('room_availability')
-    .select('date')
-    .eq('room_id', roomId)
-    .eq('is_blocked', true)
-    .gte('date', new Date().toISOString().split('T')[0])
-
-  // Get existing bookings using RPC function (bypasses RLS)
-  // This allows any user to see booked dates for availability checking
-  const { data: bookings } = await supabase
-    .rpc('get_room_booked_dates', { p_room_id: roomId })
-
-  // Get reviews for this room (via bookings)
-  const { data: reviews } = await supabase
-    .from('reviews')
-    .select(`
-      id,
-      rating,
-      comment,
-      created_at,
-      booking:bookings!inner(room_id),
-      user:profiles(full_name, avatar_url)
-    `)
-    .eq('booking.room_id', roomId)
-    .order('created_at', { ascending: false })
-    .limit(20)
-
   // Calculate average rating
-  const roomReviews = reviews || []
+  const roomReviews = reviewsResult.data || []
   const totalReviews = roomReviews.length
   const averageRating = totalReviews > 0 
     ? roomReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
@@ -138,8 +134,8 @@ async function getRoomWithTenant(slug: string, roomId: string) {
   return { 
     tenant, 
     room, 
-    blockedDates: blockedDates?.map(d => d.date) || [],
-    bookedRanges: bookings || [],
+    blockedDates: blockedDatesResult.data?.map(d => d.date) || [],
+    bookedRanges: bookingsResult.data || [],
     reviews: roomReviews,
     averageRating,
     totalReviews

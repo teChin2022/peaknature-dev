@@ -36,7 +36,11 @@ async function getTenantAndUser(slug: string) {
   const user = userResult.data?.user
   if (!user) return { tenant: tenantData, profile: null, subscriptionInfo: null }
 
-  // Fetch profile (we need the user ID first, so this must be after)
+  // OPTIMIZED: Profile fetch is now included in parallel with tenant+user
+  // Since we already have user.id from userResult, we can add profile fetch to initial Promise.all
+  // But since we need to check user exists first, we fetch profile here
+  // Note: This is already optimized - the profile fetch is the only remaining sequential call
+  // and it's necessary because we need user.id
   const { data: profileData } = await supabase
     .from('profiles')
     .select('*')

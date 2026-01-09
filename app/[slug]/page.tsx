@@ -70,12 +70,18 @@ async function getTenantWithRooms(slug: string) {
   
   if (!tenant) return null
 
-  const { data: rooms } = await supabase
-    .from('rooms')
-    .select('*')
-    .eq('tenant_id', tenant.id)
-    .eq('is_active', true)
-    .limit(3)
+  // OPTIMIZED: Fetch rooms and stats in parallel
+  const [roomsResult, statsResult] = await Promise.all([
+    supabase
+      .from('rooms')
+      .select('*')
+      .eq('tenant_id', tenant.id)
+      .eq('is_active', true)
+      .limit(3),
+    supabase.rpc('get_tenant_stats', { p_tenant_id: tenant.id })
+  ])
+
+  const rooms = roomsResult.data
 
   // Get tenant stats using RPC function (bypasses RLS for public access)
   // If RPC fails or doesn't exist, fall back to direct queries
@@ -86,28 +92,25 @@ async function getTenantWithRooms(slug: string) {
     roomCount: 0,
   }
 
-  const { data: statsData, error: statsError } = await supabase
-    .rpc('get_tenant_stats', { p_tenant_id: tenant.id })
-
-  if (statsError) {
+  if (statsResult.error) {
     // RPC function might not exist yet, use fallback
+    // OPTIMIZED: Fetch room count and bookings in parallel
+    const [roomCountResult, bookingsResult] = await Promise.all([
+      supabase
+        .from('rooms')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenant.id)
+        .eq('is_active', true),
+      supabase
+        .from('bookings')
+        .select('id')
+        .eq('tenant_id', tenant.id)
+    ])
     
-    // Fallback: Get room count (this works without auth)
-    const { count: roomCount } = await supabase
-      .from('rooms')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.id)
-      .eq('is_active', true)
+    tenantStats.roomCount = roomCountResult.count || 0
     
-    tenantStats.roomCount = roomCount || 0
-    
-    // Try to get reviews via bookings (reviews are linked to bookings, not rooms directly)
-    // Reviews table has booking_id, bookings have tenant_id
-    const { data: tenantBookings } = await supabase
-      .from('bookings')
-      .select('id')
-      .eq('tenant_id', tenant.id)
-    
+    // Try to get reviews via bookings
+    const tenantBookings = bookingsResult.data
     if (tenantBookings && tenantBookings.length > 0) {
       const bookingIds = tenantBookings.map(b => b.id)
       const { data: reviews } = await supabase
@@ -122,9 +125,9 @@ async function getTenantWithRooms(slug: string) {
     }
   } else {
     // RPC succeeded - statsData is an array with one row when using RETURNS TABLE
-    const statsRow = Array.isArray(statsData) && statsData.length > 0 
-      ? statsData[0] 
-      : statsData
+    const statsRow = Array.isArray(statsResult.data) && statsResult.data.length > 0 
+      ? statsResult.data[0] 
+      : statsResult.data
 
     tenantStats = {
       averageRating: statsRow?.average_rating ?? null,

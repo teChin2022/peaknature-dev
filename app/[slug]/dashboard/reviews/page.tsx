@@ -21,18 +21,21 @@ interface DashboardReviewsPageProps {
 async function getReviewsData(slug: string) {
   const supabase = await createClient()
 
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
+  // OPTIMIZED: Fetch user and tenant in parallel
+  const [userResult, tenantResult] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('tenants')
+      .select('*')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .single()
+  ])
+
+  const user = userResult.data?.user
   if (!user) return null
 
-  // Get tenant
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('*')
-    .eq('slug', slug)
-    .eq('is_active', true)
-    .single()
-
+  const tenant = tenantResult.data
   if (!tenant) return null
 
   // Check if user is host of this tenant
@@ -46,37 +49,27 @@ async function getReviewsData(slug: string) {
     return null
   }
 
-  // Get all reviews for this tenant's bookings
-  const { data: tenantBookings } = await supabase
-    .from('bookings')
-    .select('id, check_in, check_out, user_id, room:rooms!inner(id, name, tenant_id)')
-    .eq('room.tenant_id', tenant.id)
-
-  const bookingIds = tenantBookings?.map(b => b.id) || []
-
+  // Get all reviews with bookings and user profiles in one query using JOINs
   const { data: reviews } = await supabase
     .from('reviews')
-    .select('id, rating, comment, created_at, booking_id, user_id')
-    .in('booking_id', bookingIds)
+    .select(`
+      id, rating, comment, created_at, booking_id, user_id,
+      booking:bookings!inner(
+        id, check_in, check_out, user_id,
+        room:rooms!inner(id, name, tenant_id)
+      ),
+      user:profiles(id, full_name, email, avatar_url)
+    `)
+    .eq('booking.room.tenant_id', tenant.id)
     .order('created_at', { ascending: false })
 
-  // Get user profiles for reviewers
-  const userIds = [...new Set(reviews?.map(r => r.user_id) || [])]
-  const { data: userProfiles } = await supabase
-    .from('profiles')
-    .select('id, full_name, email, avatar_url')
-    .in('id', userIds)
+  // No need for separate tenantBookings or userProfiles queries - all data is JOINed
 
-  // Merge data
-  const reviewsWithData = (reviews || []).map(review => {
-    const booking = tenantBookings?.find(b => b.id === review.booking_id)
-    const user = userProfiles?.find(p => p.id === review.user_id)
-    return {
-      ...review,
-      booking,
-      user,
-    }
-  })
+  // Reviews already have booking and user data from JOIN
+  const reviewsWithData = (reviews || []).map(review => ({
+    ...review,
+    // Data is already included from JOIN
+  }))
 
   // Calculate stats
   const totalReviews = reviewsWithData.length
