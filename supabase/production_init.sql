@@ -459,10 +459,22 @@ RETURNS TEXT AS $$
 $$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
 -- Get user tenant ID
+-- FIXED: Made more robust to handle NULL cases during session establishment
 CREATE OR REPLACE FUNCTION public.get_my_tenant_id()
 RETURNS UUID AS $$
-  SELECT tenant_id FROM public.profiles WHERE id = auth.uid()
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+DECLARE
+  v_tenant_id UUID;
+BEGIN
+  -- Try to get tenant_id from profile
+  SELECT tenant_id INTO v_tenant_id
+  FROM public.profiles
+  WHERE id = auth.uid();
+  
+  -- Return NULL if not found (don't throw error)
+  -- This allows RLS policies to handle the NULL case gracefully
+  RETURN v_tenant_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- Check if user is super admin
 CREATE OR REPLACE FUNCTION public.is_super_admin()
@@ -1359,6 +1371,24 @@ DROP POLICY IF EXISTS "tenants_select_own" ON tenants;
 CREATE POLICY "tenants_select_own"
   ON tenants FOR SELECT
   USING (id = public.get_my_tenant_id());
+
+-- FIXED: Add explicit RLS policy for hosts to see their tenant
+-- This policy explicitly checks the host role and tenant relationship
+-- without relying solely on get_my_tenant_id(), fixing the login issue
+-- after admin approval in production
+DROP POLICY IF EXISTS "tenants_select_host_own" ON tenants;
+CREATE POLICY "tenants_select_host_own"
+  ON tenants FOR SELECT
+  USING (
+    -- Explicitly check if user is a host and owns this tenant
+    public.is_host() 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.role = 'host'
+      AND profiles.tenant_id = tenants.id
+    )
+  );
 
 DROP POLICY IF EXISTS "tenants_update_host" ON tenants;
 CREATE POLICY "tenants_update_host"
