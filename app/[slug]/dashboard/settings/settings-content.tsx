@@ -107,58 +107,67 @@ export function SettingsPageContent({ slug, tenant, initialSettings }: SettingsP
     setIsSaving(true)
     setSuccess(false)
 
-    // Prepare the settings object for saving - ensure all required fields exist
-    const settingsToSave = {
-      ...defaultTenantSettings,
-      ...settings,
-      hero: {
-        ...defaultTenantSettings.hero,
-        ...settings.hero,
-      },
-      amenities: settings.amenities || defaultTenantSettings.amenities,
-      location: {
-        ...defaultTenantSettings.location,
-        ...settings.location,
-      },
-      contact: {
-        ...defaultTenantSettings.contact,
-        ...settings.contact,
-      },
-      stats: {
-        ...defaultTenantSettings.stats,
-        ...settings.stats,
-      },
-      social: {
-        ...defaultTenantSettings.social,
-        ...settings.social,
-      },
-      payment: {
-        ...defaultTenantSettings.payment,
-        ...settings.payment,
-      },
-      transport: {
-        ...defaultTenantSettings.transport,
-        ...settings.transport,
-      },
-    }
+    try {
+      // Prepare the settings object for saving - ensure all required fields exist
+      const settingsToSave = {
+        ...defaultTenantSettings,
+        ...settings,
+        hero: {
+          ...defaultTenantSettings.hero,
+          ...settings.hero,
+        },
+        amenities: settings.amenities || defaultTenantSettings.amenities,
+        location: {
+          ...defaultTenantSettings.location,
+          ...settings.location,
+        },
+        contact: {
+          ...defaultTenantSettings.contact,
+          ...settings.contact,
+        },
+        stats: {
+          ...defaultTenantSettings.stats,
+          ...settings.stats,
+        },
+        social: {
+          ...defaultTenantSettings.social,
+          ...settings.social,
+        },
+        payment: {
+          ...defaultTenantSettings.payment,
+          ...settings.payment,
+        },
+        transport: {
+          ...defaultTenantSettings.transport,
+          ...settings.transport,
+        },
+      }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase.from('tenants').update as any)({
-      name: formData.name,
-      logo_url: formData.logo_url || null,
-      primary_color: formData.primary_color,
-      settings: settingsToSave,
-    }).eq('id', tenant.id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from('tenants').update as any)({
+        name: formData.name,
+        logo_url: formData.logo_url || null,
+        primary_color: formData.primary_color,
+        settings: settingsToSave,
+      }).eq('id', tenant.id).select('id')
 
-    setIsSaving(false)
-
-    if (error) {
-      console.error('Error saving settings:', error)
-      alert(`Error saving settings: ${error.message}`)
-    } else {
-      setSuccess(true)
-      setTimeout(() => setSuccess(false), 3000)
-      router.refresh()
+      if (error) {
+        console.error('Error saving settings:', error)
+        alert(`Error saving settings: ${error.message}`)
+      } else if (!data || data.length === 0) {
+        // RLS might have blocked the update
+        console.error('No rows updated - RLS policy may have blocked the operation')
+        alert('Unable to save settings. Please try logging out and back in.')
+      } else {
+        setSuccess(true)
+        setTimeout(() => setSuccess(false), 3000)
+        router.refresh()
+      }
+    } catch (err) {
+      console.error('Unexpected error saving settings:', err)
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 
