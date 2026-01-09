@@ -5,13 +5,14 @@
 -- for fresh production deployments.
 -- 
 -- Generated: 2026-01-08
--- Last Review: 2026-01-08 (SEO + idempotent policies)
--- Last Migration: 047_security_hardening.sql
+-- Last Review: 2026-01-09 (Fix host tenant update RLS)
+-- Last Migration: 052_fix_host_tenant_update.sql
 -- 
 -- CHANGES IN THIS REVIEW:
--- - Added 'awaiting_payment' status to booking conflict checks
--- - Made all policies idempotent with DROP POLICY IF EXISTS
--- - Fixed booking update/delete policies for awaiting_payment status
+-- - Fixed host tenant update RLS policy causing save to hang
+-- - Created current_user_owns_tenant() function with proper error handling
+-- - Updated all ownership check functions to use consistent pattern
+-- - Added cleanup for old policy names
 -- =====================================================
 
 -- Enable required extensions
@@ -499,27 +500,43 @@ $$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
 -- Check if current user owns a specific tenant (SECURITY DEFINER to bypass RLS)
 -- Used in RLS policies to avoid circular dependency
+-- FIXED: Uses plpgsql with proper error handling to avoid timeout issues
+CREATE OR REPLACE FUNCTION public.current_user_owns_tenant(check_tenant_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_result BOOLEAN := FALSE;
+BEGIN
+  -- Simple direct check without complex logic
+  SELECT TRUE INTO v_result
+  FROM public.profiles
+  WHERE id = auth.uid()
+    AND role = 'host'
+    AND tenant_id = check_tenant_id
+  LIMIT 1;
+  
+  RETURN COALESCE(v_result, FALSE);
+EXCEPTION WHEN OTHERS THEN
+  -- On any error, deny access
+  RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Backward compatible wrapper
 CREATE OR REPLACE FUNCTION public.owns_tenant(p_tenant_id UUID)
 RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE profiles.id = auth.uid()
-    AND profiles.role = 'host'
-    AND profiles.tenant_id = p_tenant_id
-  )
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+BEGIN
+  RETURN public.current_user_owns_tenant(p_tenant_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- Check if current user owns a room's tenant (SECURITY DEFINER to bypass RLS)
 -- Used for rooms and bookings RLS policies
 CREATE OR REPLACE FUNCTION public.owns_room_tenant(p_tenant_id UUID)
 RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE profiles.id = auth.uid()
-    AND profiles.role = 'host'
-    AND profiles.tenant_id = p_tenant_id
-  )
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+BEGIN
+  RETURN public.current_user_owns_tenant(p_tenant_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
 -- =====================================================
 -- SECTION 4: BUSINESS LOGIC FUNCTIONS
@@ -1397,17 +1414,22 @@ CREATE POLICY "tenants_select_own"
   USING (id = public.get_my_tenant_id());
 
 -- FIXED: Use SECURITY DEFINER function to avoid circular RLS dependency
--- The owns_tenant() function bypasses RLS on profiles table
+-- The current_user_owns_tenant() function bypasses RLS on profiles table
 DROP POLICY IF EXISTS "tenants_select_host_own" ON tenants;
 CREATE POLICY "tenants_select_host_own"
   ON tenants FOR SELECT
-  USING (public.owns_tenant(id));
+  USING (public.current_user_owns_tenant(id));
+
+-- Clean up any old policy names
+DROP POLICY IF EXISTS "tenants_update_own_host" ON tenants;
+DROP POLICY IF EXISTS "hosts_update_own_tenant" ON tenants;
+DROP POLICY IF EXISTS "host_update_tenant" ON tenants;
 
 DROP POLICY IF EXISTS "tenants_update_host" ON tenants;
 CREATE POLICY "tenants_update_host"
   ON tenants FOR UPDATE
-  USING (public.owns_tenant(id))
-  WITH CHECK (public.owns_tenant(id));
+  USING (public.current_user_owns_tenant(id))
+  WITH CHECK (public.current_user_owns_tenant(id));
 
 DROP POLICY IF EXISTS "tenants_all_super_admin" ON tenants;
 CREATE POLICY "tenants_all_super_admin"
@@ -1445,18 +1467,35 @@ CREATE POLICY "profiles_all_super_admin"
   USING (public.is_super_admin())
   WITH CHECK (public.is_super_admin());
 
+-- Create helper function for profiles_select_host_guests to avoid repeated calls
+CREATE OR REPLACE FUNCTION public.get_host_tenant_id_safe()
+RETURNS UUID AS $$
+DECLARE
+  v_tenant_id UUID;
+BEGIN
+  SELECT tenant_id INTO v_tenant_id
+  FROM public.profiles
+  WHERE id = auth.uid()
+    AND role = 'host'
+  LIMIT 1;
+  RETURN v_tenant_id;
+EXCEPTION WHEN OTHERS THEN
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
 DROP POLICY IF EXISTS "profiles_select_host_guests" ON profiles;
 CREATE POLICY "profiles_select_host_guests"
   ON profiles FOR SELECT
   USING (
     public.is_host() 
     AND (
-      tenant_id = public.get_my_tenant_id()
+      tenant_id = public.get_host_tenant_id_safe()
       OR
       id IN (
         SELECT DISTINCT b.user_id 
         FROM bookings b
-        WHERE b.tenant_id = public.get_my_tenant_id()
+        WHERE b.tenant_id = public.get_host_tenant_id_safe()
       )
     )
   );
@@ -1472,13 +1511,13 @@ CREATE POLICY "rooms_select_active"
 DROP POLICY IF EXISTS "rooms_select_host" ON rooms;
 CREATE POLICY "rooms_select_host"
   ON rooms FOR SELECT
-  USING (public.owns_room_tenant(tenant_id));
+  USING (public.current_user_owns_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "rooms_all_host" ON rooms;
 CREATE POLICY "rooms_all_host"
   ON rooms FOR ALL
-  USING (public.owns_room_tenant(tenant_id))
-  WITH CHECK (public.owns_room_tenant(tenant_id));
+  USING (public.current_user_owns_tenant(tenant_id))
+  WITH CHECK (public.current_user_owns_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "rooms_all_super_admin" ON rooms;
 CREATE POLICY "rooms_all_super_admin"
@@ -1512,13 +1551,13 @@ CREATE POLICY "bookings_delete_own_pending"
 DROP POLICY IF EXISTS "bookings_select_host" ON bookings;
 CREATE POLICY "bookings_select_host"
   ON bookings FOR SELECT
-  USING (public.owns_room_tenant(tenant_id));
+  USING (public.current_user_owns_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "bookings_update_host" ON bookings;
 CREATE POLICY "bookings_update_host"
   ON bookings FOR UPDATE
-  USING (public.owns_room_tenant(tenant_id))
-  WITH CHECK (public.owns_room_tenant(tenant_id));
+  USING (public.current_user_owns_tenant(tenant_id))
+  WITH CHECK (public.current_user_owns_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "bookings_all_super_admin" ON bookings;
 CREATE POLICY "bookings_all_super_admin"
@@ -1537,11 +1576,10 @@ DROP POLICY IF EXISTS "room_availability_select_host" ON room_availability;
 CREATE POLICY "room_availability_select_host"
   ON room_availability FOR SELECT
   USING (
-    public.is_host() 
-    AND EXISTS (
+    EXISTS (
       SELECT 1 FROM rooms 
       WHERE rooms.id = room_availability.room_id 
-      AND rooms.tenant_id = public.get_my_tenant_id()
+      AND public.current_user_owns_tenant(rooms.tenant_id)
     )
   );
 
@@ -1549,11 +1587,10 @@ DROP POLICY IF EXISTS "room_availability_insert_host" ON room_availability;
 CREATE POLICY "room_availability_insert_host"
   ON room_availability FOR INSERT
   WITH CHECK (
-    public.is_host() 
-    AND EXISTS (
+    EXISTS (
       SELECT 1 FROM rooms 
       WHERE rooms.id = room_id 
-      AND rooms.tenant_id = public.get_my_tenant_id()
+      AND public.current_user_owns_tenant(rooms.tenant_id)
     )
   );
 
@@ -1561,19 +1598,17 @@ DROP POLICY IF EXISTS "room_availability_update_host" ON room_availability;
 CREATE POLICY "room_availability_update_host"
   ON room_availability FOR UPDATE
   USING (
-    public.is_host() 
-    AND EXISTS (
+    EXISTS (
       SELECT 1 FROM rooms 
       WHERE rooms.id = room_availability.room_id 
-      AND rooms.tenant_id = public.get_my_tenant_id()
+      AND public.current_user_owns_tenant(rooms.tenant_id)
     )
   )
   WITH CHECK (
-    public.is_host() 
-    AND EXISTS (
+    EXISTS (
       SELECT 1 FROM rooms 
       WHERE rooms.id = room_id 
-      AND rooms.tenant_id = public.get_my_tenant_id()
+      AND public.current_user_owns_tenant(rooms.tenant_id)
     )
   );
 
@@ -1581,11 +1616,10 @@ DROP POLICY IF EXISTS "room_availability_delete_host" ON room_availability;
 CREATE POLICY "room_availability_delete_host"
   ON room_availability FOR DELETE
   USING (
-    public.is_host() 
-    AND EXISTS (
+    EXISTS (
       SELECT 1 FROM rooms 
       WHERE rooms.id = room_availability.room_id 
-      AND rooms.tenant_id = public.get_my_tenant_id()
+      AND public.current_user_owns_tenant(rooms.tenant_id)
     )
   );
 
@@ -1777,7 +1811,7 @@ DROP POLICY IF EXISTS "subscription_payments_select_host" ON subscription_paymen
 CREATE POLICY "subscription_payments_select_host"
   ON subscription_payments FOR SELECT
   USING (
-    tenant_id = public.get_my_tenant_id()
+    public.current_user_owns_tenant(tenant_id)
     OR public.is_super_admin()
   );
 
@@ -1785,7 +1819,7 @@ DROP POLICY IF EXISTS "subscription_payments_insert_host" ON subscription_paymen
 CREATE POLICY "subscription_payments_insert_host"
   ON subscription_payments FOR INSERT
   WITH CHECK (
-    tenant_id = public.get_my_tenant_id()
+    public.current_user_owns_tenant(tenant_id)
     OR public.is_super_admin()
   );
 
@@ -2174,15 +2208,11 @@ GRANT SELECT ON cookie_consent_stats TO authenticated;
 -- 10.1 SECURITY HELPER FUNCTION
 -- -----------------------------------------------------
 -- Helper function to verify if a user owns/manages a tenant
+-- Updated to use the main ownership check function
 CREATE OR REPLACE FUNCTION public.user_owns_tenant(p_tenant_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.profiles
-    WHERE id = auth.uid()
-    AND role = 'host'
-    AND tenant_id = p_tenant_id
-  );
+  RETURN public.current_user_owns_tenant(p_tenant_id);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 

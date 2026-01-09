@@ -28,8 +28,7 @@ async function calculateImageContentHash(imageUrl: string): Promise<string | nul
     
     const buffer = await response.arrayBuffer()
     return crypto.createHash('sha256').update(Buffer.from(buffer)).digest('hex')
-  } catch (error) {
-    console.error('[verify-slip] Failed to calculate image content hash:', error)
+  } catch {
     return null
   }
 }
