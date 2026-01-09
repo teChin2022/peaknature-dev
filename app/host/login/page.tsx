@@ -125,15 +125,29 @@ function HostLoginContent() {
     resolver: zodResolver(loginSchema),
   })
 
+  // Helper function to add timeout to promises (prevents infinite hanging)
+  const withTimeout = <T,>(promise: Promise<T>, ms: number, operation: string): Promise<T> => {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${operation} timed out after ${ms}ms`)), ms)
+    )
+    return Promise.race([promise, timeout])
+  }
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      })
+      console.log('[Host Login] Starting sign in...')
+      
+      const { data: authData, error: signInError } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        }),
+        15000,
+        'Sign in'
+      )
 
       if (signInError) {
         logSecurityEvent(AuditActions.LOGIN_FAILED, 'warning', {
@@ -146,15 +160,41 @@ function HostLoginContent() {
       }
 
       if (authData.user) {
-        // Check user role
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role, tenant_id')
-          .eq('id', authData.user.id)
-          .single()
+        console.log('[Host Login] Sign in successful, verifying session...')
+        
+        // CRITICAL FIX: Verify session is fully established before RLS-protected queries
+        // This prevents race conditions where auth.uid() returns NULL in RLS policies
+        const { data: sessionData, error: sessionError } = await withTimeout(
+          supabase.auth.getUser(),
+          10000,
+          'Session verification'
+        )
+
+        if (sessionError || !sessionData.user) {
+          console.error('[Host Login] Session verification failed:', sessionError)
+          await supabase.auth.signOut()
+          setError('Login succeeded but session could not be verified. Please try again.')
+          return
+        }
+
+        console.log('[Host Login] Session verified, fetching profile...')
+
+        // Check user role with timeout protection
+        const { data: profile, error: profileError } = await withTimeout(
+          supabase
+            .from('profiles')
+            .select('role, tenant_id')
+            .eq('id', authData.user.id)
+            .single(),
+          10000,
+          'Profile fetch'
+        )
+
+        console.log('[Host Login] Profile result:', { profile, error: profileError?.message })
 
         // Handle profile not found
         if (profileError || !profile) {
+          console.error('[Host Login] Profile not found:', profileError)
           await supabase.auth.signOut()
           setError('Profile not found. Your registration may not have completed properly. Please try registering again.')
           return
@@ -198,14 +238,23 @@ function HostLoginContent() {
           return
         }
 
-        // Get tenant and check status
-        const { data: tenant, error: tenantError } = await supabase
-          .from('tenants')
-          .select('slug, is_active')
-          .eq('id', profile.tenant_id)
-          .single()
+        console.log('[Host Login] Fetching tenant...')
+
+        // Get tenant and check status with timeout protection
+        const { data: tenant, error: tenantError } = await withTimeout(
+          supabase
+            .from('tenants')
+            .select('slug, is_active')
+            .eq('id', profile.tenant_id)
+            .single(),
+          10000,
+          'Tenant fetch'
+        )
+
+        console.log('[Host Login] Tenant result:', { tenant, error: tenantError?.message })
 
         if (tenantError || !tenant) {
+          console.error('[Host Login] Tenant not found:', tenantError)
           await supabase.auth.signOut()
           setError('Property not found. Please contact support.')
           return
@@ -217,14 +266,24 @@ function HostLoginContent() {
           return
         }
 
+        console.log('[Host Login] Success! Redirecting to dashboard...')
+
         // Navigate to dashboard
         setIsLoading(false)
         router.push(`/${tenant.slug}/dashboard`)
         router.refresh()
         return
       }
-    } catch {
-      setError('An unexpected error occurred. Please try again.')
+    } catch (err) {
+      console.error('[Host Login] Unexpected error:', err)
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
+      
+      // Handle timeout errors specifically
+      if (errorMessage.includes('timed out')) {
+        setError('The server is taking too long to respond. Please check your connection and try again.')
+      } else {
+        setError('An unexpected error occurred. Please try again.')
+      }
     } finally {
       setIsLoading(false)
     }
