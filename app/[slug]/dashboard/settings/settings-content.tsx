@@ -145,36 +145,30 @@ export function SettingsPageContent({ slug, tenant, initialSettings }: SettingsP
         },
       }
 
-      console.log('[Settings] Saving settings - map_embed:', settings.contact?.map_embed?.substring(0, 50))
-      console.log('[Settings] Saving settings - map_url:', settings.contact?.map_url?.substring(0, 50))
+      console.log('[Settings] Saving settings via API...')
 
-      // Create promise with timeout to detect hanging requests
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout - database may be experiencing issues')), 30000)
+      // Use API route instead of direct Supabase to bypass RLS issues
+      const response = await fetch('/api/host/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tenant_id: tenant.id,
+          name: formData.name,
+          logo_url: formData.logo_url || null,
+          primary_color: formData.primary_color,
+          settings: settingsToSave,
+        }),
       })
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updatePromise = (supabase.from('tenants').update as any)({
-        name: formData.name,
-        logo_url: formData.logo_url || null,
-        primary_color: formData.primary_color,
-        settings: settingsToSave,
-      }).eq('id', tenant.id).select('id')
+      const result = await response.json()
 
-      console.log('[Settings] Sending update request...')
-      
-      // Race between update and timeout
-      const { data, error } = await Promise.race([updatePromise, timeoutPromise]) as { data: { id: string }[] | null, error: Error | null }
+      console.log('[Settings] API response:', response.status, result)
 
-      console.log('[Settings] Update response received - data:', data, 'error:', error)
-
-      if (error) {
-        console.error('[Settings] Error saving settings:', error)
-        alert(`Error saving settings: ${error.message}`)
-      } else if (!data || data.length === 0) {
-        // RLS might have blocked the update
-        console.error('[Settings] No rows updated - RLS policy may have blocked the operation')
-        alert('Unable to save settings. Please try logging out and back in.')
+      if (!response.ok) {
+        console.error('[Settings] Error saving settings:', result.error)
+        alert(`Error saving settings: ${result.error}`)
       } else {
         console.log('[Settings] Settings saved successfully')
         setSuccess(true)
@@ -313,7 +307,7 @@ export function SettingsPageContent({ slug, tenant, initialSettings }: SettingsP
                   <Label htmlFor="logo_url">{t('logoUrl')}</Label>
                   <Input
                     id="logo_url"
-                    type="url"
+                    type="text"
                     value={formData.logo_url}
                     onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
                     placeholder="https://example.com/logo.png"
