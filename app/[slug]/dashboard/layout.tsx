@@ -26,12 +26,28 @@ async function getTenantAndUser(slug: string) {
       .select('*')
       .eq('slug', slug)
       .eq('is_active', true)
-      .single() as Promise<{ data: Tenant | null; error: unknown }>,
+      .single(),
     supabase.auth.getUser()
   ])
   
-  const tenantData = tenantResult.data
-  if (!tenantData) return null
+  const tenantData = tenantResult.data as Tenant | null
+  
+  // If tenant not found, check if it exists but is inactive
+  if (!tenantData) {
+    // Query without is_active filter to see if tenant exists at all
+    const { data: anyTenant } = await supabase
+      .from('tenants')
+      .select('id, is_active, slug')
+      .eq('slug', slug)
+      .single()
+    
+    if (anyTenant) {
+      console.error(`[Dashboard] Tenant '${slug}' found but is_active=${anyTenant.is_active}`)
+    } else {
+      console.error(`[Dashboard] Tenant '${slug}' not found at all`)
+    }
+    return null
+  }
 
   const user = userResult.data?.user
   if (!user) return { tenant: tenantData, profile: null, subscriptionInfo: null }
