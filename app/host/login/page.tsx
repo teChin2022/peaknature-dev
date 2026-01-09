@@ -91,23 +91,23 @@ function HostLoginContent() {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: profile } = await supabase
+        // OPTIMIZED: Single query to get profile with tenant
+        type ProfileCheck = {
+          role: string
+          tenant_id: string | null
+          tenant: { slug: string; is_active: boolean } | null
+        }
+        
+        const { data } = await supabase
           .from('profiles')
-          .select('role, tenant_id')
+          .select('role, tenant_id, tenant:tenants(slug, is_active)')
           .eq('id', user.id)
           .single()
         
-        if (profile?.role === 'host' && profile?.tenant_id) {
-          // Get tenant slug and redirect to dashboard
-          const { data: tenant } = await supabase
-            .from('tenants')
-            .select('slug, is_active')
-            .eq('id', profile.tenant_id)
-            .single()
-          
-          if (tenant?.is_active) {
-            router.push(`/${tenant.slug}/dashboard`)
-          }
+        const profile = data as ProfileCheck | null
+        
+        if (profile?.role === 'host' && profile?.tenant_id && profile?.tenant?.is_active) {
+          router.push(`/${profile.tenant.slug}/dashboard`)
         } else if (profile?.role === 'super_admin') {
           // Redirect super admin to admin login
           router.push('/admin/login')
@@ -133,6 +133,21 @@ function HostLoginContent() {
     return Promise.race([promise, timeout])
   }
 
+  // Helper function to poll for session after sign-in
+  // This works around the issue where signInWithPassword Promise hangs
+  // even though the network request completes successfully
+  const waitForSession = async (maxAttempts = 20, intervalMs = 500): Promise<{ user: { id: string; email_confirmed_at: string | null } } | null> => {
+    for (let i = 0; i < maxAttempts; i++) {
+      const { data } = await supabase.auth.getUser()
+      if (data.user) {
+        console.log(`[Host Login] Session found after ${i + 1} attempts`)
+        return { user: { id: data.user.id, email_confirmed_at: data.user.email_confirmed_at ?? null } }
+      }
+      await new Promise(resolve => setTimeout(resolve, intervalMs))
+    }
+    return null
+  }
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     setError(null)
@@ -140,14 +155,45 @@ function HostLoginContent() {
     try {
       console.log('[Host Login] Starting sign in...')
       
-      const { data: authData, error: signInError } = await withTimeout(
-        supabase.auth.signInWithPassword({
-          email: data.email,
-          password: data.password,
-        }),
-        15000,
-        'Sign in'
-      )
+      // WORKAROUND: The signInWithPassword Promise may hang in production
+      // even though the network request completes with 200 OK.
+      // We use Promise.race with a shorter timeout, and if it times out,
+      // we poll for the session instead.
+      
+      let authUser: { id: string; email_confirmed_at: string | null } | null = null
+      let signInError: Error | null = null
+
+      try {
+        const result = await withTimeout(
+          supabase.auth.signInWithPassword({
+            email: data.email,
+            password: data.password,
+          }),
+          5000, // Short timeout - if it hangs, we'll poll for session
+          'Sign in'
+        )
+        
+        if (result.error) {
+          signInError = result.error
+        } else if (result.data.user) {
+          authUser = { 
+            id: result.data.user.id, 
+            email_confirmed_at: result.data.user.email_confirmed_at ?? null 
+          }
+        }
+      } catch (timeoutError) {
+        // signInWithPassword Promise hung, but the network request may have succeeded
+        // Poll for session instead
+        console.log('[Host Login] signInWithPassword hung, polling for session...')
+        
+        const sessionResult = await waitForSession()
+        if (sessionResult?.user) {
+          authUser = sessionResult.user
+        } else {
+          // No session found after polling - sign in truly failed
+          signInError = new Error('Sign in failed. Please check your credentials and try again.')
+        }
+      }
 
       if (signInError) {
         logSecurityEvent(AuditActions.LOGIN_FAILED, 'warning', {
@@ -159,11 +205,10 @@ function HostLoginContent() {
         return
       }
 
-      if (authData.user) {
+      if (authUser) {
         console.log('[Host Login] Sign in successful, verifying session...')
         
-        // CRITICAL FIX: Verify session is fully established before RLS-protected queries
-        // This prevents race conditions where auth.uid() returns NULL in RLS policies
+        // Double-check session is established
         const { data: sessionData, error: sessionError } = await withTimeout(
           supabase.auth.getUser(),
           10000,
@@ -177,20 +222,35 @@ function HostLoginContent() {
           return
         }
 
-        console.log('[Host Login] Session verified, fetching profile...')
+        console.log('[Host Login] Session verified, fetching profile with tenant...')
 
-        // Check user role with timeout protection
-        const { data: profile, error: profileError } = await withTimeout(
-          supabase
+        // OPTIMIZED: Single query to fetch profile AND tenant together
+        // This eliminates a waterfall by combining 2 sequential queries into 1
+        type ProfileWithTenant = {
+          role: string
+          tenant_id: string | null
+          tenant: { slug: string; is_active: boolean } | null
+        }
+        
+        const fetchProfileWithTenant = async (): Promise<{ data: ProfileWithTenant | null; error: Error | null }> => {
+          const result = await supabase
             .from('profiles')
-            .select('role, tenant_id')
-            .eq('id', authData.user.id)
-            .single(),
+            .select('role, tenant_id, tenant:tenants(slug, is_active)')
+            .eq('id', authUser.id)
+            .single()
+          return { 
+            data: result.data as ProfileWithTenant | null, 
+            error: result.error 
+          }
+        }
+        
+        const { data: profile, error: profileError } = await withTimeout(
+          fetchProfileWithTenant(),
           10000,
-          'Profile fetch'
+          'Profile and tenant fetch'
         )
 
-        console.log('[Host Login] Profile result:', { profile, error: profileError?.message })
+        console.log('[Host Login] Profile+Tenant result:', { profile, error: profileError?.message })
 
         // Handle profile not found
         if (profileError || !profile) {
@@ -225,7 +285,7 @@ function HostLoginContent() {
         }
 
         // Check email verification
-        if (!authData.user.email_confirmed_at) {
+        if (!authUser.email_confirmed_at) {
           await supabase.auth.signOut()
           setError('Please verify your email address first. Check your inbox for the verification link.')
           return
@@ -238,23 +298,13 @@ function HostLoginContent() {
           return
         }
 
-        console.log('[Host Login] Fetching tenant...')
+        // Extract tenant from the joined query result
+        const tenant = profile.tenant as { slug: string; is_active: boolean } | null
 
-        // Get tenant and check status with timeout protection
-        const { data: tenant, error: tenantError } = await withTimeout(
-          supabase
-            .from('tenants')
-            .select('slug, is_active')
-            .eq('id', profile.tenant_id)
-            .single(),
-          10000,
-          'Tenant fetch'
-        )
+        console.log('[Host Login] Tenant data:', tenant)
 
-        console.log('[Host Login] Tenant result:', { tenant, error: tenantError?.message })
-
-        if (tenantError || !tenant) {
-          console.error('[Host Login] Tenant not found:', tenantError)
+        if (!tenant) {
+          console.error('[Host Login] Tenant not found in joined result')
           await supabase.auth.signOut()
           setError('Property not found. Please contact support.')
           return
