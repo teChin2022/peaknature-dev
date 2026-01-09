@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // TODO: Re-enable after regenerating Supabase types for React 19.2.1 / Next.js 16.0.7
+  // TODO: Re-enable after regenerating Supabase types for React 19.2.1 / Next.js 16.1.1
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -82,11 +82,13 @@ const nextConfig: NextConfig = {
             key: 'Access-Control-Allow-Credentials',
             value: 'true',
           },
-          {
-            // In production, only allow same origin; in dev, allow configured URL
+          // Only set CORS origin if explicitly configured
+          // In production: use NEXT_PUBLIC_APP_URL if set, otherwise omit (same-origin only)
+          // In dev: allow all origins (*) for development convenience
+          ...((process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.trim()) || !isProd ? [{
             key: 'Access-Control-Allow-Origin',
-            value: process.env.NEXT_PUBLIC_APP_URL || (isProd ? '' : '*'),
-          },
+            value: (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.trim()) || '*',
+          }] : []),
           {
             key: 'Access-Control-Allow-Methods',
             value: 'GET, POST, PUT, DELETE, OPTIONS',
