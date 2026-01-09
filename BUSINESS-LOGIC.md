@@ -94,15 +94,27 @@ types/database.ts           # TypeScript type definitions
 
 ### 2.3 Role Determination Logic
 
-```typescript
-// lib/supabase/server.ts - Role checking functions
+```sql
+-- supabase/production_init.sql - Helper Functions (SECURITY DEFINER)
+-- These functions bypass RLS to avoid circular dependencies
+
+-- Role checking
 function public.get_my_role() → TEXT
 function public.is_super_admin() → BOOLEAN
 function public.is_host() → BOOLEAN
+
+-- Tenant ownership
 function public.get_my_tenant_id() → UUID
+function public.get_host_tenant_id_safe() → UUID
+function public.current_user_owns_tenant(tenant_id) → BOOLEAN
+
+-- Resource ownership (used in RLS policies)
+function public.host_owns_room(room_id) → BOOLEAN
+function public.host_owns_notification(tenant_id) → BOOLEAN
+function public.is_guest_of_host_property(profile_id) → BOOLEAN
 ```
 
-**Reference:** `supabase/production_init.sql` (Section 3: Helper Functions)
+**Reference:** `supabase/production_init.sql` (Section 4: Helper Functions)
 
 ---
 
@@ -142,12 +154,22 @@ interface TenantSettings {
   currency: 'USD' | 'THB'
   hero: { tagline, description, images[] }
   amenities: TenantAmenity[]
-  contact: { address, city, phone, email, map_embed, ... }
-  stats: { show_stats, custom_stat_label, custom_stat_value }
-  social: { facebook, instagram, line, ... }
+  contact: { 
+    address, city, postal_code, country, 
+    phone, email, directions, 
+    map_url, map_embed 
+  }
+  stats: { 
+    show_stats, rating, guest_count, 
+    custom_stat_label, custom_stat_value 
+  }
+  social: { facebook, instagram, twitter, line, whatsapp }
   payment: {
     promptpay_id: string
-    promptpay_qr_url: string
+    promptpay_name: string
+    qr_code_url: string
+    bank_name: string
+    bank_account: string
     payment_timeout_minutes: number
     easyslip_enabled: boolean
     line_channel_access_token: string
@@ -157,7 +179,7 @@ interface TenantSettings {
 }
 ```
 
-**Reference:** `types/database.ts` (lines 32-142)
+**Reference:** `types/database.ts`, `supabase/production_init.sql` (Section 2: Tables)
 
 ### 3.3 URL Routing
 
@@ -361,9 +383,13 @@ RETURNS BOOLEAN
       AND date >= p_check_in
       AND date < p_check_out
   )
+
+-- Get booked dates for calendar display (bypasses RLS)
+CREATE FUNCTION get_room_booked_dates(room_id)
+RETURNS TABLE (check_in DATE, check_out DATE)
 ```
 
-**Reference:** `supabase/production_init.sql` (Section 4: Business Logic Functions)
+**Reference:** `supabase/production_init.sql` (Section 5: Business Logic Functions)
 
 ---
 
@@ -429,6 +455,41 @@ RETURNS BOOLEAN
 ```
 
 **Reference:** `supabase/production_init.sql` (check_reservation_lock, create_reservation_lock, release_reservation_lock)
+
+### 6.5 Dashboard Data Functions
+
+Host dashboard uses SECURITY DEFINER functions to bypass RLS:
+
+```sql
+-- Get bookings with guest info (for dashboard/bookings page)
+CREATE FUNCTION get_tenant_bookings(tenant_id, status?)
+RETURNS TABLE (
+  id, tenant_id, room_id, user_id,
+  check_in, check_out, guests, total_price, status, notes, created_at,
+  room_name, guest_full_name, guest_email, guest_phone, payment_slip_url
+)
+
+-- Get guests for tenant (for dashboard/guests page)
+CREATE FUNCTION get_tenant_guests(tenant_id)
+RETURNS TABLE (
+  id, email, full_name, phone, tenant_id,
+  is_blocked, avatar_url, created_at
+)
+
+-- Get tenant stats (for landing page)
+CREATE FUNCTION get_tenant_stats(tenant_id)
+RETURNS TABLE (
+  average_rating, total_reviews, guest_count, room_count
+)
+
+-- Get guest demographics by province (for analytics)
+CREATE FUNCTION get_guest_demographics_by_province(tenant_id)
+RETURNS TABLE (
+  province, guest_count, booking_count, total_revenue
+)
+```
+
+**Reference:** `supabase/production_init.sql` (Section 5: Business Logic Functions)
 
 ### 6.3 Booking Creation Flow
 
@@ -693,29 +754,71 @@ if (protectedRoutes.includes(tenantPath)) {
 
 ### 9.4 Row Level Security (RLS)
 
-All tables have RLS enabled with policies:
+All 16 tables have RLS enabled with SECURITY DEFINER helper functions to avoid circular dependencies:
 
 ```sql
--- Example: Bookings policies
+-- Example: Bookings policies (using helper functions)
 CREATE POLICY "bookings_select_own"
   ON bookings FOR SELECT
   USING (auth.uid() = user_id);
 
 CREATE POLICY "bookings_select_host"
   ON bookings FOR SELECT
-  USING (
-    public.is_host() 
-    AND tenant_id = public.get_my_tenant_id()
-  );
+  USING (public.current_user_owns_tenant(tenant_id));
+
+CREATE POLICY "bookings_update_host"
+  ON bookings FOR UPDATE
+  USING (public.current_user_owns_tenant(tenant_id))
+  WITH CHECK (public.current_user_owns_tenant(tenant_id));
 
 CREATE POLICY "bookings_all_super_admin"
   ON bookings FOR ALL
   USING (public.is_super_admin());
+
+-- Example: Profiles policies (host can view guests who booked)
+CREATE POLICY "profiles_select_host_guests"
+  ON profiles FOR SELECT
+  USING (
+    tenant_id = public.get_host_tenant_id_safe()
+    OR public.is_guest_of_host_property(id)
+  );
 ```
 
-**Reference:** `supabase/production_init.sql` (Section 5: Row Level Security)
+**Reference:** `supabase/production_init.sql` (Section 8: RLS Policies)
 
-### 9.5 Rate Limiting
+### 9.5 Audit Logging
+
+All admin actions are logged to an immutable audit_logs table:
+
+```sql
+CREATE TABLE audit_logs (
+  id UUID PRIMARY KEY,
+  created_at TIMESTAMPTZ,
+  action VARCHAR(100),        -- e.g., 'tenant.deactivate', 'user.block'
+  category VARCHAR(50),       -- 'admin', 'security', 'user', 'system'
+  severity VARCHAR(20),       -- 'info', 'warning', 'error', 'critical'
+  actor_id UUID,              -- Who performed the action
+  actor_email, actor_role, actor_ip, actor_user_agent,
+  target_type VARCHAR(50),    -- 'tenant', 'user', 'booking', 'room'
+  target_id UUID,
+  details JSONB,              -- Additional structured data
+  old_value JSONB,            -- Previous state (for updates)
+  new_value JSONB,            -- New state (for updates)
+  success BOOLEAN
+);
+
+-- Log via SECURITY DEFINER function
+CREATE FUNCTION log_audit_event(
+  action, category, severity,
+  actor_id, actor_email, actor_role, actor_ip, actor_user_agent,
+  target_type, target_id, target_name,
+  tenant_id, details, old_value, new_value, success, error_message
+) RETURNS UUID
+```
+
+**Reference:** `supabase/production_init.sql` (Section 2: Tables, audit_logs)
+
+### 9.6 Rate Limiting
 
 ```typescript
 // lib/rate-limit.ts
@@ -736,7 +839,7 @@ if (!success) {
 
 **Reference:** `lib/rate-limit.ts`
 
-### 9.6 Security Headers
+### 9.7 Security Headers
 
 ```typescript
 // next.config.ts
@@ -843,10 +946,12 @@ EASYSLIP_API_KEY=
 | `verified_slips` | Verified payment slips (prevent reuse) |
 | `upload_tokens` | Mobile slip upload tokens |
 | `notification_queue` | Notification history |
+| `date_waitlist` | Guest waitlist for locked dates |
 | `subscription_payments` | Host subscription payment records |
 | `plan_features` | Plan feature definitions |
 | `platform_settings` | Global admin settings |
 | `cookie_consent_logs` | GDPR consent records |
+| `audit_logs` | Immutable admin action logs |
 
 ---
 
@@ -858,9 +963,13 @@ EASYSLIP_API_KEY=
 | `/api/payment/create-lock` | POST | Create reservation lock |
 | `/api/payment/check-lock` | POST | Check lock status |
 | `/api/booking/cancel` | POST | Cancel booking |
+| `/api/host/settings` | PUT | Update tenant settings (bypasses RLS) |
+| `/api/host/rooms` | POST | Create/update room |
+| `/api/host/availability` | POST | Update room availability |
 | `/api/subscription/upgrade` | POST | Submit subscription payment |
 | `/api/admin/settings` | GET/POST | Platform settings |
 | `/api/admin/subscription-payment` | POST | Approve/reject payments |
+| `/api/admin/audit` | GET | Get audit logs |
 | `/api/user/delete` | POST | Delete user account |
 | `/api/consent/log` | POST | Log cookie consent |
 | `/api/upload/create-token` | POST | Create mobile upload token |
@@ -868,5 +977,5 @@ EASYSLIP_API_KEY=
 
 ---
 
-*Last Updated: January 6, 2026*
+*Last Updated: January 9, 2026*
 
