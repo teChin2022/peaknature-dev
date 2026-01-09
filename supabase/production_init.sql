@@ -497,6 +497,30 @@ RETURNS BOOLEAN AS $$
   )
 $$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
+-- Check if current user owns a specific tenant (SECURITY DEFINER to bypass RLS)
+-- Used in RLS policies to avoid circular dependency
+CREATE OR REPLACE FUNCTION public.owns_tenant(p_tenant_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE profiles.id = auth.uid()
+    AND profiles.role = 'host'
+    AND profiles.tenant_id = p_tenant_id
+  )
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
+-- Check if current user owns a room's tenant (SECURITY DEFINER to bypass RLS)
+-- Used for rooms and bookings RLS policies
+CREATE OR REPLACE FUNCTION public.owns_room_tenant(p_tenant_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE profiles.id = auth.uid()
+    AND profiles.role = 'host'
+    AND profiles.tenant_id = p_tenant_id
+  )
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+
 -- =====================================================
 -- SECTION 4: BUSINESS LOGIC FUNCTIONS
 -- =====================================================
@@ -1372,45 +1396,18 @@ CREATE POLICY "tenants_select_own"
   ON tenants FOR SELECT
   USING (id = public.get_my_tenant_id());
 
--- FIXED: Add explicit RLS policy for hosts to see their tenant
--- This policy explicitly checks the host role and tenant relationship
--- without relying solely on get_my_tenant_id(), fixing the login issue
--- after admin approval in production
+-- FIXED: Use SECURITY DEFINER function to avoid circular RLS dependency
+-- The owns_tenant() function bypasses RLS on profiles table
 DROP POLICY IF EXISTS "tenants_select_host_own" ON tenants;
 CREATE POLICY "tenants_select_host_own"
   ON tenants FOR SELECT
-  USING (
-    -- Explicitly check if user is a host and owns this tenant
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = tenants.id
-    )
-  );
+  USING (public.owns_tenant(id));
 
 DROP POLICY IF EXISTS "tenants_update_host" ON tenants;
 CREATE POLICY "tenants_update_host"
   ON tenants FOR UPDATE
-  USING (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = tenants.id
-    )
-  )
-  WITH CHECK (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = tenants.id
-    )
-  );
+  USING (public.owns_tenant(id))
+  WITH CHECK (public.owns_tenant(id));
 
 DROP POLICY IF EXISTS "tenants_all_super_admin" ON tenants;
 CREATE POLICY "tenants_all_super_admin"
@@ -1475,37 +1472,13 @@ CREATE POLICY "rooms_select_active"
 DROP POLICY IF EXISTS "rooms_select_host" ON rooms;
 CREATE POLICY "rooms_select_host"
   ON rooms FOR SELECT
-  USING (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = rooms.tenant_id
-    )
-  );
+  USING (public.owns_room_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "rooms_all_host" ON rooms;
 CREATE POLICY "rooms_all_host"
   ON rooms FOR ALL
-  USING (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = rooms.tenant_id
-    )
-  )
-  WITH CHECK (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = rooms.tenant_id
-    )
-  );
+  USING (public.owns_room_tenant(tenant_id))
+  WITH CHECK (public.owns_room_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "rooms_all_super_admin" ON rooms;
 CREATE POLICY "rooms_all_super_admin"
@@ -1539,37 +1512,13 @@ CREATE POLICY "bookings_delete_own_pending"
 DROP POLICY IF EXISTS "bookings_select_host" ON bookings;
 CREATE POLICY "bookings_select_host"
   ON bookings FOR SELECT
-  USING (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = bookings.tenant_id
-    )
-  );
+  USING (public.owns_room_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "bookings_update_host" ON bookings;
 CREATE POLICY "bookings_update_host"
   ON bookings FOR UPDATE
-  USING (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = bookings.tenant_id
-    )
-  )
-  WITH CHECK (
-    public.is_host() 
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'host'
-      AND profiles.tenant_id = bookings.tenant_id
-    )
-  );
+  USING (public.owns_room_tenant(tenant_id))
+  WITH CHECK (public.owns_room_tenant(tenant_id));
 
 DROP POLICY IF EXISTS "bookings_all_super_admin" ON bookings;
 CREATE POLICY "bookings_all_super_admin"
