@@ -17,48 +17,49 @@ interface MyBookingsPageProps {
 async function getUserBookings(slug: string) {
   const supabase = await createClient()
   
-  const { data: tenant } = await supabase
-    .from('tenants')
-    .select('*')
-    .eq('slug', slug)
-    .eq('is_active', true)
-    .single()
+  // OPTIMIZED: Fetch tenant and user in parallel
+  const [tenantResult, userResult] = await Promise.all([
+    supabase
+      .from('tenants')
+      .select('*')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .single(),
+    supabase.auth.getUser()
+  ])
   
+  const tenant = tenantResult.data
   if (!tenant) return null
 
-  const { data: { user } } = await supabase.auth.getUser()
-  
+  const user = userResult.data?.user
   if (!user) return { tenant, bookings: [], user: null, profile: null }
 
-  // Get user profile for phone number
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('phone')
-    .eq('id', user.id)
-    .single()
+  // OPTIMIZED: Fetch profile and bookings in parallel
+  const [profileResult, bookingsResult] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('phone')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('bookings')
+      .select(`
+        *,
+        room:rooms(*),
+        reviews:reviews(id, booking_id, rating, comment, created_at)
+      `)
+      .eq('tenant_id', tenant.id)
+      .eq('user_id', user.id)
+      .order('check_in', { ascending: false })
+  ])
 
-  const { data: bookings } = await supabase
-    .from('bookings')
-    .select(`
-      *,
-      room:rooms(*)
-    `)
-    .eq('tenant_id', tenant.id)
-    .eq('user_id', user.id)
-    .order('check_in', { ascending: false })
+  const profile = profileResult.data
+  const bookings = bookingsResult.data || []
 
-  // Fetch reviews separately for each booking
-  const bookingIds = bookings?.map(b => b.id) || []
-  
-  const { data: reviews } = await supabase
-    .from('reviews')
-    .select('id, booking_id, rating, comment, created_at')
-    .in('booking_id', bookingIds)
-
-  // Merge reviews into bookings
-  const bookingsWithReviews = (bookings || []).map(booking => ({
+  // Reviews are now included via JOIN - no separate query needed
+  const bookingsWithReviews = bookings.map(booking => ({
     ...booking,
-    reviews: reviews?.filter(r => r.booking_id === booking.id) || []
+    reviews: booking.reviews || []
   }))
 
   return { tenant, bookings: bookingsWithReviews, user, profile }
